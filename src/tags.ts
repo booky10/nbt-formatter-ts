@@ -150,8 +150,16 @@ export class ByteArrayTag extends ArrayTag<number> {
   asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     let builder = "[B;";
+    if (indent > 0) {
+      builder += " ";
+    }
     for (let i = 0; i < value.length; i++) {
-      if (i != 0) builder += ",";
+      if (i != 0) {
+        builder += ",";
+        if (indent > 0) {
+          builder += " ";
+        }
+      }
       builder += value[i] + "B";
     }
     return builder + "]";
@@ -251,8 +259,16 @@ export class IntArrayTag extends ArrayTag<number> {
   asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     let builder = "[I;";
+    if (indent > 0) {
+      builder += " ";
+    }
     for (let i = 0; i < value.length; i++) {
-      if (i != 0) builder += ",";
+      if (i != 0) {
+        builder += ",";
+        if (indent > 0) {
+          builder += " ";
+        }
+      }
       builder += value[i];
     }
     return builder + "]";
@@ -265,8 +281,16 @@ export class LongArrayTag extends ArrayTag<bigint> {
   asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     let builder = "[L;";
+    if (indent > 0) {
+      builder += " ";
+    }
     for (let i = 0; i < value.length; i++) {
-      if (i != 0) builder += ",";
+      if (i != 0) {
+        builder += ",";
+        if (indent > 0) {
+          builder += " ";
+        }
+      }
       builder += value[i] + "L";
     }
     return builder + "]";
