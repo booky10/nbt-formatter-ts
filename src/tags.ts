@@ -157,8 +157,8 @@ export class StringTag extends Tag<string> {
   }
 }
 export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
-  private listType: NbtType;
-  constructor(type: NbtType, value: T[]) {
+  private listType?: NbtType;
+  constructor(type?: NbtType, value: T[] = new Array<T>()) {
     super(NbtType.LIST, value);
     this.listType = type;
   }
@@ -171,12 +171,15 @@ export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
     }
     return builder + "]";
   }
-  public getListType(): NbtType {
+  public add(tag: T) {
+    this.getValue().push(tag);
+  }
+  public getListType(): NbtType | undefined {
     return this.listType;
   }
 }
 export class CompoundTag extends Tag<Map<string, Tag<any>>> {
-  constructor(value: Map<string, Tag<any>>) {
+  constructor(value: Map<string, Tag<any>> = new Map()) {
     super(NbtType.COMPOUND, value);
   }
   asString(indent?: number): string {
@@ -190,6 +193,9 @@ export class CompoundTag extends Tag<Map<string, Tag<any>>> {
       builder += handleEscape(key) + ":" + tag.asString(indent);
     }
     return builder + "}";
+  }
+  public set(key: string, tag: Tag<any>) {
+    this.getValue().set(key, tag);
   }
 }
 export class IntArrayTag extends ArrayTag<number> {
