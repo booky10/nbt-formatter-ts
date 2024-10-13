@@ -1,5 +1,6 @@
 import { Express } from "express";
 import { parseTag } from "./parser.js";
+import { Tag } from "./tags.js";
 
 const DEFAULT_INDENT = 2;
 const MIN_INDENT = 0;
@@ -7,7 +8,7 @@ const MAX_INDENT = 10;
 
 const nanos = (): number => Math.ceil(performance.now() * 1_000_000);
 const register = (app: Express) =>
-  app.post("/api/v1/format", (req, res, next) => {
+  app.post("/api/v1/format", (req, res) => {
     const totalStart = nanos();
 
     const suppliedIndent = Number(req.query.indent || DEFAULT_INDENT);
@@ -15,18 +16,28 @@ const register = (app: Express) =>
     res.header("Indent", `${indent}`);
 
     const parseStart = nanos();
-    const nbt = parseTag(req.body);
+    let nbt: Tag<any> | undefined = undefined;
+    let nbtError: string | undefined = undefined;
+    try {
+      nbt = parseTag(req.body);
+    } catch (error) {
+      nbtError = error.toString();
+    }
     const parseDur = nanos() - parseStart;
     res.header("Parsing-Time", `${parseDur}`);
 
     const stringifyStart = nanos();
-    const stringifedNbt = nbt.asString(indent);
+    const stringifedNbt = nbt?.asString(indent);
     const stringifyDur = nanos() - stringifyStart;
     res.header("Format-Time", `${stringifyDur}`);
 
     const totalDur = nanos() - totalStart;
     res.header("Total-Time", `${totalDur}`);
 
-    res.send(stringifedNbt);
+    if (nbtError) {
+      res.status(400).send(nbtError);
+    } else if (stringifedNbt) {
+      res.send(stringifedNbt);
+    }
   });
 export default register;
