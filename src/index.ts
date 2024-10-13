@@ -30,6 +30,7 @@ app.use(
     delayAfter: 5,
     delayMs: (hits) => hits * 200,
     validate: { trustProxy: false },
+    skip: (req, res) => !req.path.startsWith("/api"),
   })
 );
 
