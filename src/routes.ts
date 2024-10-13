@@ -10,7 +10,7 @@ const register = (app: Express) =>
   app.post("/api/v1/format", (req, res, next) => {
     const totalStart = nanos();
 
-    const suppliedIndent = Number(req.query.indent) || DEFAULT_INDENT;
+    const suppliedIndent = Number(req.query.indent || DEFAULT_INDENT);
     const indent = Math.min(MAX_INDENT, Math.max(MIN_INDENT, suppliedIndent));
     res.header("Indent", `${indent}`);
 
