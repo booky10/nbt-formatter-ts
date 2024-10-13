@@ -19,6 +19,7 @@ if (trustProxy) {
 }
 
 app.use(cors());
+app.use(express.text({ type: () => true }));
 app.use(
   // allow 5 requests per 30s, then slow down
   // add 200ms delay per each additional request
