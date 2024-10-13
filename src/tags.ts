@@ -44,6 +44,11 @@ const handleEscape = (string: string): string => {
   return simple ? string : quoteAndEscape(string);
 };
 
+const INDENT_CHAR = " ";
+const genIndent = (indent: number, indentLevel: number): string => {
+  return indent > 0 ? "\n" + INDENT_CHAR.repeat(indent * indentLevel) : "";
+};
+
 export abstract class Tag<T> {
   private type: NbtType;
   private value: T;
@@ -53,7 +58,11 @@ export abstract class Tag<T> {
     this.value = value;
   }
 
-  public abstract asString(indent?: number): string;
+  public asString(indent: number = 0): string {
+    return this.asString0(indent, 0);
+  }
+
+  abstract asString0(indent: number, indentLevel: number): string;
 
   public getValue(): T {
     return this.value;
@@ -82,7 +91,7 @@ export class EndTag extends Tag<undefined> {
   constructor() {
     super(NbtType.END, undefined);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return "END";
   }
 }
@@ -90,7 +99,7 @@ export class ByteTag extends NumberTag<number> {
   constructor(value: number) {
     super(NbtType.BYTE, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return `${this.getValue()}b`;
   }
 }
@@ -98,7 +107,7 @@ export class ShortTag extends NumberTag<number> {
   constructor(value: number) {
     super(NbtType.SHORT, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return `${this.getValue()}s`;
   }
 }
@@ -106,7 +115,7 @@ export class IntTag extends NumberTag<number> {
   constructor(value: number) {
     super(NbtType.INT, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return `${this.getValue()}`;
   }
 }
@@ -114,7 +123,7 @@ export class LongTag extends NumberTag<bigint> {
   constructor(value: bigint) {
     super(NbtType.LONG, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return `${this.getValue()}L`;
   }
 }
@@ -122,7 +131,7 @@ export class FloatTag extends NumberTag<number> {
   constructor(value: number) {
     super(NbtType.FLOAT, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return `${this.getValue()}f`;
   }
 }
@@ -130,7 +139,7 @@ export class DoubleTag extends NumberTag<number> {
   constructor(value: number) {
     super(NbtType.DOUBLE, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return `${this.getValue()}d`;
   }
 }
@@ -138,7 +147,7 @@ export class ByteArrayTag extends ArrayTag<number> {
   constructor(value: number[]) {
     super(NbtType.BYTE_ARRAY, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     let builder = "[B;";
     for (let i = 0; i < value.length; i++) {
@@ -152,7 +161,7 @@ export class StringTag extends Tag<string> {
   constructor(value: string) {
     super(NbtType.STRING, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     return quoteAndEscape(this.getValue());
   }
 }
@@ -162,12 +171,30 @@ export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
     super(NbtType.LIST, value);
     this.listType = type;
   }
-  asString(indent?: number): string {
+  private newlines() {
+    const listType = this.getListType();
+    return listType === NbtType.COMPOUND || listType === NbtType.LIST || listType === NbtType.BYTE_ARRAY || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
+  }
+  asString0(indent: number, indentLevel: number): string {
+    indentLevel++;
+    const newlines = indent > 0 && this.newlines();
     const value = this.getValue();
     let builder = "[";
     for (let i = 0; i < value.length; i++) {
-      if (i != 0) builder += ",";
-      builder += value[i].asString(indent);
+      if (i != 0) {
+        builder += ",";
+        if (indent > 0 && !newlines) {
+          builder += " ";
+        }
+      }
+      if (newlines) {
+        builder += genIndent(indent, indentLevel);
+      }
+      builder += value[i].asString0(indent, indentLevel);
+    }
+    indentLevel--;
+    if (newlines) {
+      builder += genIndent(indent, indentLevel);
     }
     return builder + "]";
   }
@@ -175,14 +202,21 @@ export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
     this.getValue().push(tag);
   }
   public getListType(): NbtType | undefined {
-    return this.listType;
+    if (this.listType !== undefined) {
+      return this.listType;
+    }
+    const list = this.getValue();
+    if (list.length > 0) {
+      return list[0].getType();
+    }
+    return undefined;
   }
 }
 export class CompoundTag extends Tag<Map<string, Tag<any>>> {
   constructor(value: Map<string, Tag<any>> = new Map()) {
     super(NbtType.COMPOUND, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     const keys = value.keys().toArray().sort();
     let builder = "{";
@@ -190,7 +224,7 @@ export class CompoundTag extends Tag<Map<string, Tag<any>>> {
       if (i != 0) builder += ",";
       const key = keys[i];
       const tag = value.get(key);
-      builder += handleEscape(key) + ":" + tag.asString(indent);
+      builder += handleEscape(key) + ":" + tag.asString0(indent, indentLevel + 1);
     }
     return builder + "}";
   }
@@ -202,7 +236,7 @@ export class IntArrayTag extends ArrayTag<number> {
   constructor(value: number[]) {
     super(NbtType.INT_ARRAY, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     let builder = "[I;";
     for (let i = 0; i < value.length; i++) {
@@ -216,7 +250,7 @@ export class LongArrayTag extends ArrayTag<bigint> {
   constructor(value: bigint[]) {
     super(NbtType.LONG_ARRAY, value);
   }
-  asString(indent?: number): string {
+  asString0(indent: number, indentLevel: number): string {
     const value = this.getValue();
     let builder = "[L;";
     for (let i = 0; i < value.length; i++) {
