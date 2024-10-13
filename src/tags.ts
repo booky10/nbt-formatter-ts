@@ -160,7 +160,12 @@ export class ByteArrayTag extends ArrayTag<number> {
           builder += " ";
         }
       }
-      builder += value[i] + "B";
+      const val = value[i];
+      if (typeof val === "boolean") {
+        builder += `${val}`;
+      } else {
+        builder += val + "B";
+      }
     }
     return builder + "]";
   }
@@ -294,5 +299,18 @@ export class LongArrayTag extends ArrayTag<bigint> {
       builder += value[i] + "L";
     }
     return builder + "]";
+  }
+}
+
+// virtual tag, doesn't exist in vanilla minecraft
+export class BooleanTag extends NumberTag<boolean> {
+  constructor(value: boolean) {
+    super(NbtType.BYTE, value);
+  }
+  public getNumber(): number {
+    return this.getValue() ? 1 : 0;
+  }
+  asString0(indent: number, indentLevel: number): string {
+    return this.getValue() ? "true" : "false";
   }
 }

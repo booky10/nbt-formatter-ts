@@ -1,4 +1,4 @@
-import { ArrayTag, ByteArrayTag, ByteTag, CompoundTag, DoubleTag, FloatTag, IntArrayTag, IntTag, ListTag, LongArrayTag, LongTag, NbtType, ShortTag, StringTag, Tag } from "./tags.js";
+import { ArrayTag, BooleanTag, ByteArrayTag, ByteTag, CompoundTag, DoubleTag, FloatTag, IntArrayTag, IntTag, ListTag, LongArrayTag, LongTag, NbtType, ShortTag, StringTag, Tag } from "./tags.js";
 
 const SYNTAX_ESCAPE = "\\";
 const SYNTAX_DOUBLE_QUOTE = '"';
@@ -187,9 +187,9 @@ class TagParser {
     } else if (DOUBLE_PATTERN_NOSUFFIX.test(string)) {
       return new DoubleTag(Number(string));
     } else if ("true" === string) {
-      return new ByteTag(1);
+      return new BooleanTag(true);
     } else if ("false" === string) {
-      return new ByteTag(0);
+      return new BooleanTag(false);
     } else {
       return new StringTag(string);
     }
