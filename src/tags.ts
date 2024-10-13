@@ -1,5 +1,3 @@
-const SIMPLE_VALUE_REGEX = /^[A-Za-z0-9._+-]+$/;
-
 export enum NbtType {
   END = 0,
   BYTE = 1,
@@ -40,286 +38,185 @@ const quoteAndEscape = (string: string): string => {
   return quote + builder + quote;
 };
 
-export interface Tag<T> {
-  asString(indent?: number): string;
-  getType(): NbtType;
-  getValue(): T;
-}
-export interface NumberTag<T> extends Tag<T> {
-  getNumber(): number;
-}
-export interface ArrayTag<T> extends Tag<T[]> {}
+const SIMPLE_VALUE_REGEX = /^[A-Za-z0-9._+-]+$/;
+const handleEscape = (string: string): string => {
+  const simple = SIMPLE_VALUE_REGEX.test(string);
+  return simple ? string : quoteAndEscape(string);
+};
 
-export class EndTag implements Tag<undefined> {
-  constructor() {}
-
-  asString(indent?: number): string {
-    return "END";
-  }
-  getType(): NbtType {
-    return NbtType.END;
-  }
-  getValue(): undefined {
-    return undefined;
-  }
-}
-export class ByteTag implements NumberTag<number> {
-  private value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return `${this.value}b`;
-  }
-  getType(): NbtType {
-    return NbtType.BYTE;
-  }
-  getValue(): number {
-    return this.value;
-  }
-  getNumber(): number {
-    return this.value;
-  }
-}
-export class ShortTag implements NumberTag<number> {
-  private value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return `${this.value}s`;
-  }
-  getType(): NbtType {
-    return NbtType.SHORT;
-  }
-  getValue(): number {
-    return this.value;
-  }
-  getNumber(): number {
-    return this.value;
-  }
-}
-export class IntTag implements NumberTag<number> {
-  private value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return `${this.value}`;
-  }
-  getType(): NbtType {
-    return NbtType.INT;
-  }
-  getValue(): number {
-    return this.value;
-  }
-  getNumber(): number {
-    return this.value;
-  }
-}
-export class LongTag implements NumberTag<bigint> {
-  private value: bigint;
-
-  constructor(value: bigint) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return `${this.value}L`;
-  }
-  getType(): NbtType {
-    return NbtType.LONG;
-  }
-  getValue(): bigint {
-    return this.value;
-  }
-  getNumber(): number {
-    return Number(this.value);
-  }
-}
-export class FloatTag implements NumberTag<number> {
-  private value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return `${this.value}f`;
-  }
-  getType(): NbtType {
-    return NbtType.FLOAT;
-  }
-  getValue(): number {
-    return this.value;
-  }
-  getNumber(): number {
-    return this.value;
-  }
-}
-export class DoubleTag implements NumberTag<number> {
-  private value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return `${this.value}d`;
-  }
-  getType(): NbtType {
-    return NbtType.DOUBLE;
-  }
-  getValue(): number {
-    return this.value;
-  }
-  getNumber(): number {
-    return this.value;
-  }
-}
-export class ByteArrayTag implements ArrayTag<number> {
-  private value: number[];
-
-  constructor(value: number[]) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    let builder = "[B;";
-    for (let i = 0; i < this.value.length; i++) {
-      if (i != 0) builder += ",";
-      builder += this.value[i] + "B";
-    }
-    return builder + "]";
-  }
-  getType(): NbtType {
-    return NbtType.BYTE_ARRAY;
-  }
-  getValue(): number[] {
-    return this.value;
-  }
-}
-export class StringTag implements Tag<string> {
-  private value: string;
-
-  constructor(value: string) {
-    this.value = value;
-  }
-
-  asString(indent?: number): string {
-    return quoteAndEscape(this.value);
-  }
-  getType(): NbtType {
-    return NbtType.STRING;
-  }
-  getValue(): string {
-    return this.value;
-  }
-}
-export class ListTag<T extends Tag<any>> implements ArrayTag<T> {
+export abstract class Tag<T> {
   private type: NbtType;
-  private value: T[];
+  private value: T;
 
-  constructor(type: NbtType, value: T[]) {
+  constructor(type: NbtType, value: T) {
     this.type = type;
     this.value = value;
   }
 
+  public abstract asString(indent?: number): string;
+
+  public getValue(): T {
+    return this.value;
+  }
+
+  public getType(): NbtType {
+    return this.type;
+  }
+
+  public isType(type: NbtType): boolean {
+    return this.type == type;
+  }
+}
+export abstract class NumberTag<T> extends Tag<T> {
+  public getNumber(): number {
+    return Number(this.getValue());
+  }
+
+  public isType(type: NbtType): boolean {
+    return type == NbtType.ANY_NUMERIC || super.isType(type);
+  }
+}
+export abstract class ArrayTag<T> extends Tag<T[]> {}
+
+export class EndTag extends Tag<undefined> {
+  constructor() {
+    super(NbtType.END, undefined);
+  }
   asString(indent?: number): string {
-    let builder = "[";
-    for (let i = 0; i < this.value.length; i++) {
+    return "END";
+  }
+}
+export class ByteTag extends NumberTag<number> {
+  constructor(value: number) {
+    super(NbtType.BYTE, value);
+  }
+  asString(indent?: number): string {
+    return `${this.getValue()}b`;
+  }
+}
+export class ShortTag extends NumberTag<number> {
+  constructor(value: number) {
+    super(NbtType.SHORT, value);
+  }
+  asString(indent?: number): string {
+    return `${this.getValue()}s`;
+  }
+}
+export class IntTag extends NumberTag<number> {
+  constructor(value: number) {
+    super(NbtType.INT, value);
+  }
+  asString(indent?: number): string {
+    return `${this.getValue()}`;
+  }
+}
+export class LongTag extends NumberTag<bigint> {
+  constructor(value: bigint) {
+    super(NbtType.LONG, value);
+  }
+  asString(indent?: number): string {
+    return `${this.getValue()}L`;
+  }
+}
+export class FloatTag extends NumberTag<number> {
+  constructor(value: number) {
+    super(NbtType.FLOAT, value);
+  }
+  asString(indent?: number): string {
+    return `${this.getValue()}f`;
+  }
+}
+export class DoubleTag extends NumberTag<number> {
+  constructor(value: number) {
+    super(NbtType.DOUBLE, value);
+  }
+  asString(indent?: number): string {
+    return `${this.getValue()}d`;
+  }
+}
+export class ByteArrayTag extends ArrayTag<number> {
+  constructor(value: number[]) {
+    super(NbtType.BYTE_ARRAY, value);
+  }
+  asString(indent?: number): string {
+    const value = this.getValue();
+    let builder = "[B;";
+    for (let i = 0; i < value.length; i++) {
       if (i != 0) builder += ",";
-      builder += this.value[i].asString(indent);
+      builder += value[i] + "B";
     }
     return builder + "]";
   }
-  getType(): NbtType {
-    return NbtType.LIST;
+}
+export class StringTag extends Tag<string> {
+  constructor(value: string) {
+    super(NbtType.STRING, value);
   }
-  getValue(): T[] {
-    return this.value;
-  }
-  public getListType(): NbtType {
-    return this.type;
+  asString(indent?: number): string {
+    return quoteAndEscape(this.getValue());
   }
 }
-export class CompoundTag implements Tag<Map<string, Tag<any>>> {
-  private value: Map<string, Tag<any>>;
-
-  constructor(value: Map<string, Tag<any>>) {
-    this.value = value;
+export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
+  private listType: NbtType;
+  constructor(type: NbtType, value: T[]) {
+    super(NbtType.LIST, value);
+    this.listType = type;
   }
-
-  private handleEscape(string: string): string {
-    const simple = SIMPLE_VALUE_REGEX.test(string);
-    return simple ? string : quoteAndEscape(string);
-  }
-
   asString(indent?: number): string {
-    const keys = this.value.keys().toArray().sort();
+    const value = this.getValue();
+    let builder = "[";
+    for (let i = 0; i < value.length; i++) {
+      if (i != 0) builder += ",";
+      builder += value[i].asString(indent);
+    }
+    return builder + "]";
+  }
+  public getListType(): NbtType {
+    return this.listType;
+  }
+}
+export class CompoundTag extends Tag<Map<string, Tag<any>>> {
+  constructor(value: Map<string, Tag<any>>) {
+    super(NbtType.COMPOUND, value);
+  }
+  asString(indent?: number): string {
+    const value = this.getValue();
+    const keys = value.keys().toArray().sort();
     let builder = "{";
     for (let i = 0; i < keys.length; i++) {
       if (i != 0) builder += ",";
       const key = keys[i];
-      const tag = this.value.get(key);
-      builder += this.handleEscape(key) + ":" + tag.asString(indent);
+      const tag = value.get(key);
+      builder += handleEscape(key) + ":" + tag.asString(indent);
     }
     return builder + "}";
   }
-  getType(): NbtType {
-    return NbtType.COMPOUND;
-  }
-  getValue(): Map<string, Tag<any>> {
-    return this.value;
-  }
 }
-export class IntArrayTag implements ArrayTag<number> {
-  private value: number[];
-
+export class IntArrayTag extends ArrayTag<number> {
   constructor(value: number[]) {
-    this.value = value;
+    super(NbtType.INT_ARRAY, value);
   }
-
   asString(indent?: number): string {
+    const value = this.getValue();
     let builder = "[I;";
-    for (let i = 0; i < this.value.length; i++) {
+    for (let i = 0; i < value.length; i++) {
       if (i != 0) builder += ",";
-      builder += this.value[i];
+      builder += value[i];
     }
     return builder + "]";
-  }
-  getType(): NbtType {
-    return NbtType.INT_ARRAY;
-  }
-  getValue(): number[] {
-    return this.value;
   }
 }
-export class LongArrayTag implements ArrayTag<bigint> {
-  private value: bigint[];
-
+export class LongArrayTag extends ArrayTag<bigint> {
   constructor(value: bigint[]) {
-    this.value = value;
+    super(NbtType.LONG_ARRAY, value);
   }
-
   asString(indent?: number): string {
+    const value = this.getValue();
     let builder = "[L;";
-    for (let i = 0; i < this.value.length; i++) {
+    for (let i = 0; i < value.length; i++) {
       if (i != 0) builder += ",";
-      builder += this.value[i] + "L";
+      builder += value[i] + "L";
     }
     return builder + "]";
-  }
-  getType(): NbtType {
-    return NbtType.LONG_ARRAY;
-  }
-  getValue(): bigint[] {
-    return this.value;
   }
 }
