@@ -9,6 +9,8 @@ import routes from "./routes.js";
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 8080);
 const trustProxy = process.env.TRUST_PROXY || false;
+const frontendEnabled = process.env.FRONTEND_ENABLED || true;
+const frontendDirectory = process.env.FRONTEND_DIRECTORY || "public";
 
 // express setup
 const app = express();
@@ -33,6 +35,11 @@ app.use(
 
 // register routes
 routes(app);
+
+// register static frontend page
+if (frontendEnabled) {
+  app.use(express.static(frontendDirectory));
+}
 
 // handle errors
 app.use((err, req, res, next) => {

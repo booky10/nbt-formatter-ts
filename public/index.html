@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="style.css" rel="stylesheet" type="text/css"/>
+    <script src="script.js?v=3" type="text/javascript" defer></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+
+    <title>Minecraft Nbt Formatter</title>
+    <meta name="description" content="Reformats Minecraft NBT with indention using Adventure's NBT library.">
+</head>
+
+<body>
+
+<div class="grid">
+    <div>
+        <label for="input"></label>
+        <textarea id="input" autocomplete="off" autocorrect="off" autofocus spellcheck="false"
+                  placeholder="Insert NBT here" rows="10"></textarea>
+    </div>
+
+    <div>
+        <button id="reformat">Reformat</button>
+        <button id="minify">Minify</button>
+        <button id="copy">Copy</button>
+    </div>
+
+    <div>
+        <span id="status"></span>
+        <code id="message"></code>
+    </div>
+</div>
+
+</body>
+</html>
