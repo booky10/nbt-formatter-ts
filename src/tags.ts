@@ -217,15 +217,27 @@ export class CompoundTag extends Tag<Map<string, Tag<any>>> {
     super(NbtType.COMPOUND, value);
   }
   asString0(indent: number, indentLevel: number): string {
+    indentLevel++;
     const value = this.getValue();
     const keys = value.keys().toArray().sort();
     let builder = "{";
     for (let i = 0; i < keys.length; i++) {
-      if (i != 0) builder += ",";
+      if (i != 0) {
+        builder += ",";
+      }
+      if (indent > 0) {
+        builder += genIndent(indent, indentLevel);
+      }
       const key = keys[i];
+      builder += handleEscape(key) + ":";
+      if (indent > 0) {
+        builder += " ";
+      }
       const tag = value.get(key);
-      builder += handleEscape(key) + ":" + tag.asString0(indent, indentLevel + 1);
+      builder += tag.asString0(indent, indentLevel);
     }
+    indentLevel--;
+    builder += genIndent(indent, indentLevel);
     return builder + "}";
   }
   public set(key: string, tag: Tag<any>) {
