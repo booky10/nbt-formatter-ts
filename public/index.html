@@ -1,36 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <link href="style.css" rel="stylesheet" type="text/css"/>
+  <head>
+    <link href="style.css?v=2" rel="stylesheet" type="text/css" />
     <script src="script.js?v=3" type="text/javascript" defer></script>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8" />
 
     <title>Minecraft Nbt Formatter</title>
-    <meta name="description" content="Reformats Minecraft NBT with indention using Adventure's NBT library.">
-</head>
+    <meta name="description" content="Reformats Minecraft NBT with indention using Adventure's NBT library." />
+  </head>
 
-<body>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Minecraft Nbt Formatter</h1>
+        <p>Enter nbt in text area below and use buttons for formatting nbt or minifying nbt.</p>
+        <p>See <a href="https://minecraft.wiki/w/NBT_format#SNBT_format">Minecraft Wiki</a> to see how SNBT works.</p>
+      </header>
 
-<div class="grid">
-    <div>
+      <div>
         <label for="input"></label>
-        <textarea id="input" autocomplete="off" autocorrect="off" autofocus spellcheck="false"
-                  placeholder="Insert NBT here" rows="10"></textarea>
-    </div>
+        <textarea id="input" autocomplete="off" autocorrect="off" autofocus spellcheck="false" placeholder="Insert NBT here" rows="10"></textarea>
+      </div>
 
-    <div>
+      <div>
         <button id="reformat">Reformat</button>
         <button id="minify">Minify</button>
         <button id="copy">Copy</button>
-    </div>
+      </div>
 
-    <div>
+      <div>
         <span id="status"></span>
         <code id="message"></code>
+      </div>
     </div>
-</div>
-
-</body>
+  </body>
 </html>
