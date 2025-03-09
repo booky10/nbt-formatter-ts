@@ -1,7 +1,7 @@
 {
   "name": "nbt-formatter",
   "license": "GPL-3.0-only",
-  "packageManager": "yarn@4.5.0",
+  "packageManager": "yarn@4.7.0",
   "type": "module",
   "devDependencies": {
     "@types/cors": "^2",
