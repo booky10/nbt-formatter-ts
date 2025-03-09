@@ -8,8 +8,8 @@ import routes from "./routes.js";
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 8080);
-const trustProxy = process.env.TRUST_PROXY || false;
-const frontendEnabled = process.env.FRONTEND_ENABLED || true;
+const trustProxy = (process.env.TRUST_PROXY === "true") || false;
+const frontendEnabled = (process.env.FRONTEND_ENABLED === "true") || true;
 const frontendDirectory = process.env.FRONTEND_DIRECTORY || "public";
 const apiRedir = process.env.API_REDIR || "https://github.com/booky10/nbt-formatter-ts";
 
