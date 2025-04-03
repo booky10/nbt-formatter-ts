@@ -1,0 +1,6 @@
+[*.ts]
+indent_size = 2
+indent_style = space
+ij_typescript_blank_lines_around_method = 0
+ij_typescript_blank_lines_around_method_in_interface = 0
+ij_typescript_blank_lines_around_class = 0

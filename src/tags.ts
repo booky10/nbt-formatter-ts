@@ -15,33 +15,68 @@ export enum NbtType {
   ANY_NUMERIC = 99,
 }
 
+const getControlCharacter = (char: string): string | undefined => {
+  switch (char) {
+    case "\b":
+      return "b";
+    case "\t":
+      return "t";
+    case "\n":
+      return "n";
+    case "\f":
+      return "f";
+    case "\r":
+      return "r";
+    default:
+      if (char < " ") {
+        return `x${char.charCodeAt(0).toString(16).toUpperCase()}`;
+      }
+      return undefined;
+  }
+};
+
 const quoteAndEscape = (string: string): string => {
   let builder = "";
   let quote: string = undefined;
   for (let i = 0; i < string.length; ++i) {
     let c = string.charAt(i);
     if (c == "\\") {
-      builder += "\\";
-    } else if (c == '"' || c == "'") {
+      builder += "\\\\";
+    } else if (c != "\"" && c != "'") {
+      const controlChar = getControlCharacter(c);
+      if (controlChar != null) {
+        builder += "\\";
+        builder += controlChar;
+      } else {
+        builder += c;
+      }
+    } else {
       if (!quote) {
-        quote = c == '"' ? "'" : '"';
+        quote = c == "\"" ? "'" : "\"";
       }
       if (quote == c) {
         builder += "\\";
       }
+      builder += c;
     }
-    builder += c;
   }
   if (!quote) {
-    quote = '"';
+    quote = "\"";
   }
   return quote + builder + quote;
 };
 
 const SIMPLE_VALUE_REGEX = /^[A-Za-z0-9._+-]+$/;
-const handleEscape = (string: string): string => {
-  const simple = SIMPLE_VALUE_REGEX.test(string);
-  return simple ? string : quoteAndEscape(string);
+const IGNORE_CASE_COMPARATOR = new Intl.Collator(undefined, {sensitivity: "accent"});
+
+const isSimpleTagKey = (key: string): boolean => {
+  return IGNORE_CASE_COMPARATOR.compare(key, "true") !== 0
+    && IGNORE_CASE_COMPARATOR.compare(key, "false") !== 0
+    && SIMPLE_VALUE_REGEX.test(key);
+};
+
+const handleEscape = (key: string): string => {
+  return isSimpleTagKey(key) ? key : quoteAndEscape(key);
 };
 
 const INDENT_CHAR = " ";
@@ -85,7 +120,8 @@ export abstract class NumberTag<T> extends Tag<T> {
     return type == NbtType.ANY_NUMERIC || super.isType(type);
   }
 }
-export abstract class ArrayTag<T> extends Tag<T[]> {}
+export abstract class ArrayTag<T> extends Tag<T[]> {
+}
 
 export class EndTag extends Tag<undefined> {
   constructor() {
@@ -186,7 +222,8 @@ export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
   }
   private newlines() {
     const listType = this.getListType();
-    return listType === NbtType.COMPOUND || listType === NbtType.LIST || listType === NbtType.BYTE_ARRAY || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
+    return listType === NbtType.COMPOUND || listType === NbtType.LIST || listType === NbtType.BYTE_ARRAY
+      || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
   }
   asString0(indent: number, indentLevel: number): string {
     indentLevel++;
