@@ -114,4 +114,8 @@ export default class StringReader {
     }
     throw new Error("Reader: Expected symbol: " + char);
   }
+
+  public getString() {
+    return this.string
+  }
 }

@@ -1,3 +1,5 @@
+import {escapeControlCharacters} from "./SnbtGrammer.js";
+
 export enum NbtType {
   END = 0,
   BYTE = 1,
@@ -15,26 +17,6 @@ export enum NbtType {
   ANY_NUMERIC = 99,
 }
 
-const getControlCharacter = (char: string): string | undefined => {
-  switch (char) {
-    case "\b":
-      return "b";
-    case "\t":
-      return "t";
-    case "\n":
-      return "n";
-    case "\f":
-      return "f";
-    case "\r":
-      return "r";
-    default:
-      if (char < " ") {
-        return `x${char.charCodeAt(0).toString(16).toUpperCase()}`;
-      }
-      return undefined;
-  }
-};
-
 const quoteAndEscape = (string: string): string => {
   let builder = "";
   let quote: string = undefined;
@@ -43,7 +25,7 @@ const quoteAndEscape = (string: string): string => {
     if (c == "\\") {
       builder += "\\\\";
     } else if (c != "\"" && c != "'") {
-      const controlChar = getControlCharacter(c);
+      const controlChar = escapeControlCharacters(c);
       if (controlChar != null) {
         builder += "\\";
         builder += controlChar;
