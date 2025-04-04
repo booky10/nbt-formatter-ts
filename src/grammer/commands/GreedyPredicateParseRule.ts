@@ -8,7 +8,7 @@ export default abstract class GreedyPredicateParseRule implements Rule<StringRea
   private readonly maxSize: number;
   private readonly error: () => Error;
 
-  constructor(minSize: number, maxSize: number = INTEGER_MAX_VALUE, error: () => Error) {
+  protected constructor(minSize: number, maxSize: number = INTEGER_MAX_VALUE, error: () => Error) {
     this.minSize = minSize;
     this.maxSize = maxSize;
     this.error = error;
