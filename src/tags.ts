@@ -1,3 +1,6 @@
+import {escapeControlCharacters} from "./SnbtGrammer.js";
+import {IGNORE_CASE_COMPARATOR} from "./common/util.js";
+
 export enum NbtType {
   END = 0,
   BYTE = 1,
@@ -15,26 +18,6 @@ export enum NbtType {
   ANY_NUMERIC = 99,
 }
 
-const getControlCharacter = (char: string): string | undefined => {
-  switch (char) {
-    case "\b":
-      return "b";
-    case "\t":
-      return "t";
-    case "\n":
-      return "n";
-    case "\f":
-      return "f";
-    case "\r":
-      return "r";
-    default:
-      if (char < " ") {
-        return `x${char.charCodeAt(0).toString(16).toUpperCase()}`;
-      }
-      return undefined;
-  }
-};
-
 const quoteAndEscape = (string: string): string => {
   let builder = "";
   let quote: string = undefined;
@@ -43,7 +26,7 @@ const quoteAndEscape = (string: string): string => {
     if (c == "\\") {
       builder += "\\\\";
     } else if (c != "\"" && c != "'") {
-      const controlChar = getControlCharacter(c);
+      const controlChar = escapeControlCharacters(c);
       if (controlChar != null) {
         builder += "\\";
         builder += controlChar;
@@ -67,12 +50,10 @@ const quoteAndEscape = (string: string): string => {
 };
 
 const SIMPLE_VALUE_REGEX = /^[A-Za-z0-9._+-]+$/;
-const IGNORE_CASE_COMPARATOR = new Intl.Collator(undefined, {sensitivity: "accent"});
-
 const isSimpleTagKey = (key: string): boolean => {
   return IGNORE_CASE_COMPARATOR.compare(key, "true") !== 0
-    && IGNORE_CASE_COMPARATOR.compare(key, "false") !== 0
-    && SIMPLE_VALUE_REGEX.test(key);
+      && IGNORE_CASE_COMPARATOR.compare(key, "false") !== 0
+      && SIMPLE_VALUE_REGEX.test(key);
 };
 
 const handleEscape = (key: string): string => {
@@ -85,8 +66,8 @@ const genIndent = (indent: number, indentLevel: number): string => {
 };
 
 export abstract class Tag<T> {
-  private type: NbtType;
-  private value: T;
+  private readonly type: NbtType;
+  private readonly value: T;
 
   constructor(type: NbtType, value: T) {
     this.type = type;
@@ -215,15 +196,17 @@ export class StringTag extends Tag<string> {
   }
 }
 export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
-  private listType?: NbtType;
+  private readonly listType?: NbtType;
+
   constructor(type?: NbtType, value: T[] = new Array<T>()) {
     super(NbtType.LIST, value);
     this.listType = type;
   }
+
   private newlines() {
     const listType = this.getListType();
     return listType === NbtType.COMPOUND || listType === NbtType.LIST || listType === NbtType.BYTE_ARRAY
-      || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
+        || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
   }
   asString0(indent: number, indentLevel: number): string {
     indentLevel++;
@@ -344,10 +327,36 @@ export class BooleanTag extends NumberTag<boolean> {
   constructor(value: boolean) {
     super(NbtType.BYTE, value);
   }
+  static true() {
+    return BOOLEAN_TRUE;
+  }
+  static false() {
+    return BOOLEAN_FALSE;
+  }
   public getNumber(): number {
     return this.getValue() ? 1 : 0;
   }
   asString0(indent: number, indentLevel: number): string {
     return this.getValue() ? "true" : "false";
+  }
+}
+const BOOLEAN_TRUE = new BooleanTag(true);
+const BOOLEAN_FALSE = new BooleanTag(false);
+
+// virtual tag to represent SNBT operations
+export type SnbtOperation = {
+  operation: string;
+  arguments: Tag<any>[];
+}
+export class SnbtOperationTag extends Tag<SnbtOperation> {
+  constructor(value: SnbtOperation) {
+    super(undefined, value);
+  }
+  asString0(indent: number, indentLevel: number): string {
+    const {operation, arguments: args} = this.getValue();
+    const argsString = args
+        .map(tag => tag.asString0(indent, indentLevel))
+        .join(`,${indent ? " " : ""}`);
+    return `${operation}(${argsString})`;
   }
 }
