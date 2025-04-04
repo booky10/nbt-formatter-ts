@@ -1,4 +1,4 @@
-import {assert, growByHalf} from "./util.js";
+import {assert, growByHalf} from "../common/util.js";
 import Atom from "./Atom.js";
 
 // generate random frame start marker, javascript doesn't have comparison by object identity as far as I know

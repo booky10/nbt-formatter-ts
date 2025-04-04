@@ -21,7 +21,7 @@ const register = (app: Express) =>
     try {
       nbt = parseTag(req.body);
     } catch (error) {
-      nbtError = error.toString();
+      nbtError = `Nbt: ${error.toString()}`;
     }
     const parseDur = nanos() - parseStart;
     res.header("Parsing-Time", `${parseDur}`);

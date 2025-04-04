@@ -861,6 +861,15 @@ abstract class ArrayPrefix<T extends ArrayTag<any>> {
   }
 }
 
+enum TypeSuffix {
+  FLOAT,
+  DOUBLE,
+  BYTE,
+  SHORT,
+  INT,
+  LONG,
+}
+
 const ARRAY_PREFIX_BYTE = new (class ByteArrayPrefix extends ArrayPrefix<ByteArrayTag> {
   constructor() {
     super(TypeSuffix.BYTE);
@@ -1076,13 +1085,4 @@ class SimpleHexLiteralParseRule extends GreedyPredicateParseRule {
         return false;
     }
   }
-}
-
-enum TypeSuffix {
-  FLOAT,
-  DOUBLE,
-  BYTE,
-  SHORT,
-  INT,
-  LONG,
 }

@@ -1,4 +1,4 @@
-import {growByHalf} from "./util.js";
+import {growByHalf} from "../common/util.js";
 import ErrorEntry from "./ErrorEntry.js";
 
 export default interface ErrorCollector<S> {
