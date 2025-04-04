@@ -1,7 +1,7 @@
 import Atom from "./Atom.js";
 import NamedRule from "./NamedRule.js";
 import Rule, {RuleAction, ruleFromTerm, SimpleRuleAction} from "./Rule.js";
-import Supplier from "./Supplier.js";
+import Supplier from "../common/Supplier.js";
 import {Term} from "./Term.js";
 import ParseState from "./ParseState.js";
 import Scope from "./Scope.js";
@@ -10,7 +10,7 @@ import Control from "./Control.js";
 export default class Dictionary<S> {
   private readonly terms: Map<Atom<any>, DictionaryEntry<S, any>> = new Map();
 
-  public put<T>(name: Atom<T>, rule: Rule<S, T>): NamedRule<S, T> {
+  public putRule<T>(name: Atom<T>, rule: Rule<S, T>): NamedRule<S, T> {
     let entry = this.terms.get(name);
     if (entry == null) {
       entry = new DictionaryEntry<S, any>(name);
@@ -23,19 +23,25 @@ export default class Dictionary<S> {
     return entry;
   }
 
-  public putComplex<T>(name: Atom<T>, term: Term<S>, ruleAction: RuleAction<S, T>) {
-    return this.put(name, ruleFromTerm(term, ruleAction));
+  public putComplex<T>(name: Atom<T>, term: Term<S>, ruleAction: RuleAction<S, T> | ((state: ParseState<S>) => T | undefined)) {
+    if (typeof ruleAction === "function") {
+      ruleAction = {run: ruleAction};
+    }
+    return this.putRule(name, ruleFromTerm(term, ruleAction));
   }
 
-  public putSimple<T>(name: Atom<T>, term: Term<S>, ruleAction: SimpleRuleAction<S, T>) {
-    return this.put(name, ruleFromTerm(term, ruleAction));
+  public put<T>(name: Atom<T>, term: Term<S>, ruleAction: SimpleRuleAction<S, T> | ((state: ParseState<S>) => T)) {
+    if (typeof ruleAction === "function") {
+      ruleAction = {run: ruleAction};
+    }
+    return this.putRule(name, ruleFromTerm(term, ruleAction));
   }
 
   public checkAllBound() {
     const unboundAtoms = this.terms.entries()
-      .filter(([, val]) => val === undefined || val === null)
-      .map(([key]) => key)
-      .toArray();
+        .filter(([, val]) => val === undefined || val === null)
+        .map(([key]) => key)
+        .toArray();
     if (unboundAtoms.length) {
       throw new Error("Unbound names: " + unboundAtoms);
     }

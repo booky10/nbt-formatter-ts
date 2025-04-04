@@ -8,10 +8,46 @@ export interface Term<S> {
   parse(state: ParseState<S>, scope: Scope, control: Control): boolean;
 }
 
+export class CutTerm<S> implements Term<S> {
+  parse(state: ParseState<S>, scope: Scope, control: Control): boolean {
+    control.cut();
+    return true;
+  }
+  public toString() {
+    return "↑";
+  }
+}
+
+export class EmptyTerm<S> implements Term<S> {
+  parse(state: ParseState<S>, scope: Scope, control: Control): boolean {
+    return true;
+  }
+  public toString() {
+    return "ε";
+  }
+}
+
+export class FailTerm<S> implements Term<S> {
+  private readonly reason: any;
+
+  constructor(reason: any) {
+    this.reason = reason;
+  }
+
+  parse(state: ParseState<S>, scope: Scope, control: Control): boolean {
+    state.getErrorCollector().store(state.mark(), this.reason);
+    return false;
+  }
+
+  public toString() {
+    return "fail";
+  }
+}
+
 export class AlternativeTerm<S> implements Term<S> {
   private readonly elements: Term<S>[];
 
-  constructor(elements: Term<S>[]) {
+  constructor(...elements: Term<S>[]) {
     this.elements = elements;
   }
 
@@ -89,8 +125,12 @@ export class MarkerTerm<S, T> implements Term<S> {
   }
 }
 
-export class MaybeTerm<S> implements Term<S> {
+export class OptionalTerm<S> implements Term<S> {
   private readonly term: Term<S>;
+
+  constructor(term: Term<S>) {
+    this.term = term;
+  }
 
   parse(state: ParseState<S>, scope: Scope, control: Control): boolean {
     const cursor = state.mark();
@@ -110,7 +150,7 @@ export class RepeatedTerm<S, T> implements Term<S> {
   private readonly listName: Atom<T[]>;
   private readonly minRepetitions: number;
 
-  constructor(element: NamedRule<S, T>, listName: Atom<T[]>, minRepetitions: number) {
+  constructor(element: NamedRule<S, T>, listName: Atom<T[]>, minRepetitions: number = 0) {
     this.element = element;
     this.listName = listName;
     this.minRepetitions = minRepetitions;
@@ -153,6 +193,20 @@ export class RepeatedWithSeparatorTerm<S, T> implements Term<S> {
   private readonly separator: Term<S>;
   private readonly minRepetitions: number;
   private readonly allowTrailingSeparator: boolean;
+
+  constructor(
+      element: NamedRule<S, T>,
+      listName: Atom<T[]>,
+      separator: Term<S>,
+      minRepetitions: number = 0,
+      allowTrailingSeparator: boolean = true,
+  ) {
+    this.element = element;
+    this.listName = listName;
+    this.separator = separator;
+    this.minRepetitions = minRepetitions;
+    this.allowTrailingSeparator = allowTrailingSeparator;
+  }
 
   parse(state: ParseState<S>, scope: Scope, control: Control): boolean {
     const startCursor = state.mark();
@@ -211,7 +265,7 @@ export class RepeatedWithSeparatorTerm<S, T> implements Term<S> {
 export class SequenceTerm<S> implements Term<S> {
   private readonly elements: Term<S>[];
 
-  constructor(elements: Term<S>[]) {
+  constructor(...elements: Term<S>[]) {
     this.elements = elements;
   }
 

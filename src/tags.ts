@@ -1,4 +1,5 @@
 import {escapeControlCharacters} from "./SnbtGrammer.js";
+import {IGNORE_CASE_COMPARATOR} from "./common/util.js";
 
 export enum NbtType {
   END = 0,
@@ -49,12 +50,10 @@ const quoteAndEscape = (string: string): string => {
 };
 
 const SIMPLE_VALUE_REGEX = /^[A-Za-z0-9._+-]+$/;
-const IGNORE_CASE_COMPARATOR = new Intl.Collator(undefined, {sensitivity: "accent"});
-
 const isSimpleTagKey = (key: string): boolean => {
   return IGNORE_CASE_COMPARATOR.compare(key, "true") !== 0
-    && IGNORE_CASE_COMPARATOR.compare(key, "false") !== 0
-    && SIMPLE_VALUE_REGEX.test(key);
+      && IGNORE_CASE_COMPARATOR.compare(key, "false") !== 0
+      && SIMPLE_VALUE_REGEX.test(key);
 };
 
 const handleEscape = (key: string): string => {
@@ -67,8 +66,8 @@ const genIndent = (indent: number, indentLevel: number): string => {
 };
 
 export abstract class Tag<T> {
-  private type: NbtType;
-  private value: T;
+  private readonly type: NbtType;
+  private readonly value: T;
 
   constructor(type: NbtType, value: T) {
     this.type = type;
@@ -205,7 +204,7 @@ export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
   private newlines() {
     const listType = this.getListType();
     return listType === NbtType.COMPOUND || listType === NbtType.LIST || listType === NbtType.BYTE_ARRAY
-      || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
+        || listType === NbtType.INT_ARRAY || listType === NbtType.LONG_ARRAY;
   }
   asString0(indent: number, indentLevel: number): string {
     indentLevel++;
@@ -326,6 +325,12 @@ export class BooleanTag extends NumberTag<boolean> {
   constructor(value: boolean) {
     super(NbtType.BYTE, value);
   }
+  static true() {
+    return BOOLEAN_TRUE;
+  }
+  static false() {
+    return BOOLEAN_FALSE;
+  }
   public getNumber(): number {
     return this.getValue() ? 1 : 0;
   }
@@ -333,3 +338,5 @@ export class BooleanTag extends NumberTag<boolean> {
     return this.getValue() ? "true" : "false";
   }
 }
+const BOOLEAN_TRUE = new BooleanTag(true);
+const BOOLEAN_FALSE = new BooleanTag(false);

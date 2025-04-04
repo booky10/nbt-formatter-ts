@@ -12,3 +12,17 @@ export const INTEGER_MIN_VALUE = ~INTEGER_MAX_VALUE;
 export const growByHalf = (value: number, minValue: number) => {
   return Math.max(Math.min(value + (value >> 1), INTEGER_MAX_VALUE - 8), minValue);
 };
+
+export const MIN_CODE_POINT = 0x000000;
+export const MAX_CODE_POINT = 0x10FFFF;
+
+export const isValidCodePoint = (codePoint: number) => {
+  return codePoint >= MIN_CODE_POINT && codePoint <= MAX_CODE_POINT;
+};
+
+export const IGNORE_CASE_COMPARATOR = new Intl.Collator(undefined, {sensitivity: "accent"});
+
+export type MapEntry<K, V> = {
+  key: K,
+  value: V,
+}

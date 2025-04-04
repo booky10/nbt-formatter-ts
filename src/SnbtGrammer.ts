@@ -1,20 +1,35 @@
 import NumberRunParseRule from "./grammer/commands/NumberRunParseRule.js";
 import GreedyPredicateParseRule from "./grammer/commands/GreedyPredicateParseRule.js";
-import {INTEGER_MAX_VALUE} from "./common/util.js";
-import {TerminalCharacters} from "./grammer/commands/StringReaderTerms.js";
+import {IGNORE_CASE_COMPARATOR, INTEGER_MAX_VALUE, isValidCodePoint, MapEntry} from "./common/util.js";
+import StringReaderTerms, {TerminalCharacters} from "./grammer/commands/StringReaderTerms.js";
 import StringBuilder from "./common/StringBuilder.js";
 import ParseState from "./grammer/ParseState.js";
 import {
-  ArrayTag,
+  ArrayTag, BooleanTag,
   ByteArrayTag,
-  ByteTag,
+  ByteTag, CompoundTag,
   DoubleTag,
   FloatTag, IntArrayTag,
   IntTag, LongArrayTag,
   LongTag,
   NumberTag,
-  ShortTag,
+  ShortTag, StringTag, Tag,
 } from "./tags.js";
+import Grammer from "./grammer/commands/Grammer.js";
+import Dictionary from "./grammer/Dictionary.js";
+import StringReader from "./common/StringReader.js";
+import Atom from "./grammer/Atom.js";
+import {
+  AlternativeTerm,
+  CutTerm,
+  FailTerm,
+  MarkerTerm,
+  OptionalTerm,
+  RepeatedTerm, RepeatedWithSeparatorTerm,
+  SequenceTerm,
+} from "./grammer/Term.js";
+import GreedyPatternParseRule from "./grammer/commands/GreedyPatternParseRule.js";
+import UnquotedStringParseRule from "./grammer/commands/UnquotedStringParseRule.js";
 
 const ERROR_NUMBER_PARSE_FAILURE = (error: string) =>
     new Error(`Failed to parse number: ${error}`);
@@ -283,7 +298,423 @@ const convertDouble = (state: ParseState<any>, value: string) => {
   }
 };
 
-// TODO create grammer
+export const createParser = (): Grammer<Tag<any>> => {
+  const dictionary = new Dictionary<StringReader>();
+
+  const atomSign = new Atom<Sign>("sign");
+  dictionary.put(
+      atomSign,
+      new AlternativeTerm(
+          new SequenceTerm(StringReaderTerms.character("+"), new MarkerTerm(atomSign, Sign.PLUS)),
+          new SequenceTerm(StringReaderTerms.character("-"), new MarkerTerm(atomSign, Sign.MINUS)),
+      ),
+      state => state.getScope().getOrThrow(atomSign),
+  );
+
+  const atomIntegerSuffix = new Atom<IntegerSuffix>("integer_suffix");
+  dictionary.put(
+      atomIntegerSuffix,
+      new AlternativeTerm(
+          new SequenceTerm(
+              StringReaderTerms.characters("u", "U"),
+              new AlternativeTerm(
+                  new SequenceTerm(
+                      StringReaderTerms.characters("b", "B"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.UNSIGNED, type: TypeSuffix.BYTE}),
+                  ),
+                  new SequenceTerm(
+                      StringReaderTerms.characters("s", "S"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.UNSIGNED, type: TypeSuffix.SHORT}),
+                  ),
+                  new SequenceTerm(
+                      StringReaderTerms.characters("i", "I"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.UNSIGNED, type: TypeSuffix.INT}),
+                  ),
+                  new SequenceTerm(
+                      StringReaderTerms.characters("l", "L"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.UNSIGNED, type: TypeSuffix.LONG}),
+                  ),
+              ),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.characters("s", "S"),
+              new AlternativeTerm(
+                  new SequenceTerm(
+                      StringReaderTerms.characters("b", "B"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.SIGNED, type: TypeSuffix.BYTE}),
+                  ),
+                  new SequenceTerm(
+                      StringReaderTerms.characters("s", "S"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.SIGNED, type: TypeSuffix.SHORT}),
+                  ),
+                  new SequenceTerm(
+                      StringReaderTerms.characters("i", "I"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.SIGNED, type: TypeSuffix.INT}),
+                  ),
+                  new SequenceTerm(
+                      StringReaderTerms.characters("l", "L"),
+                      new MarkerTerm(atomIntegerSuffix, {signed: SignedPrefix.SIGNED, type: TypeSuffix.LONG}),
+                  ),
+              ),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.characters("b", "B"),
+              new MarkerTerm(atomIntegerSuffix, {signed: undefined, type: TypeSuffix.BYTE}),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.characters("s", "S"),
+              new MarkerTerm(atomIntegerSuffix, {signed: undefined, type: TypeSuffix.SHORT}),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.characters("i", "I"),
+              new MarkerTerm(atomIntegerSuffix, {signed: undefined, type: TypeSuffix.INT}),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.characters("l", "L"),
+              new MarkerTerm(atomIntegerSuffix, {signed: undefined, type: TypeSuffix.LONG}),
+          ),
+      ),
+      state => state.getScope().getOrThrow(atomIntegerSuffix),
+  );
+
+  const atomBinaryNumeral = new Atom<string>("binary_numeral");
+  dictionary.putRule(atomBinaryNumeral, BINARY_NUMERAL);
+  const atomDecimalNumeral = new Atom<string>("decimal_numeral");
+  dictionary.putRule(atomDecimalNumeral, DECIMAL_NUMERAL);
+  const atomHexNumeral = new Atom<string>("hex_numeral");
+  dictionary.putRule(atomHexNumeral, HEX_NUMERAL);
+
+  const atomIntegerLiteral = new Atom<IntegerLiteral>("integer_literal");
+  const integerLiteralRule = dictionary.put(
+      atomIntegerLiteral,
+      new SequenceTerm(
+          new OptionalTerm(dictionary.named(atomSign)),
+          new AlternativeTerm(
+              new SequenceTerm(
+                  StringReaderTerms.character("0"),
+                  new CutTerm(),
+                  new AlternativeTerm(
+                      new SequenceTerm(StringReaderTerms.characters("x", "X"), new CutTerm(), dictionary.named(atomHexNumeral)),
+                      new SequenceTerm(StringReaderTerms.characters("b", "B"), dictionary.named(atomBinaryNumeral)),
+                      new SequenceTerm(dictionary.named(atomDecimalNumeral), new CutTerm(), new FailTerm(ERROR_LEADING_ZERO_NOT_ALLOWED)),
+                      new MarkerTerm(atomDecimalNumeral, "0"),
+                  ),
+              ),
+              dictionary.named(atomDecimalNumeral),
+          ),
+          new OptionalTerm(dictionary.named(atomIntegerSuffix)),
+      ),
+      state => {
+        const suffix = state.getScope().getOrDefault(atomIntegerSuffix, INTEGER_SUFFIX_EMPTY);
+        const sign = state.getScope().getOrDefault(atomSign, Sign.PLUS);
+        const decimalDigits = state.getScope().get(atomDecimalNumeral);
+        if (decimalDigits !== undefined && decimalDigits !== null) {
+          return new IntegerLiteral(sign, Base.DECIMAL, decimalDigits, suffix);
+        }
+        const hexDigits = state.getScope().get(atomHexNumeral);
+        if (hexDigits !== undefined && hexDigits !== null) {
+          return new IntegerLiteral(sign, Base.HEX, hexDigits, suffix);
+        }
+        const binaryDigits = state.getScope().getOrThrow(atomBinaryNumeral);
+        return new IntegerLiteral(sign, Base.BINARY, binaryDigits, suffix);
+      },
+  );
+
+  const atomFloatTypeSuffix = new Atom<TypeSuffix>("float_type_suffix");
+  dictionary.put(
+      atomFloatTypeSuffix,
+      new AlternativeTerm(
+          new SequenceTerm(StringReaderTerms.characters("f", "F"), new MarkerTerm(atomFloatTypeSuffix, TypeSuffix.FLOAT)),
+          new SequenceTerm(StringReaderTerms.characters("d", "D"), new MarkerTerm(atomFloatTypeSuffix, TypeSuffix.DOUBLE)),
+      ),
+      state => state.getScope().getOrThrow(atomFloatTypeSuffix),
+  );
+  const atomFloatExponentPart = new Atom<Signed<string>>("float_exponent_part");
+  dictionary.put(
+      atomFloatExponentPart,
+      new SequenceTerm(StringReaderTerms.characters("e", "E"), new OptionalTerm(dictionary.named(atomSign)), dictionary.named(atomDecimalNumeral)),
+      state => {
+        return {
+          sign: state.getScope().getOrDefault(atomSign, Sign.PLUS),
+          value: state.getScope().getOrThrow(atomDecimalNumeral),
+        };
+      },
+  );
+
+  const atomFloatWholePart = new Atom<string>("float_whole_part");
+  const atomFloatFractionPart = new Atom<string>("float_fraction_part");
+  const atomFloatLiteral = new Atom<NumberTag<any>>("float_literal");
+  dictionary.putComplex(
+      atomFloatLiteral,
+      new SequenceTerm(
+          new OptionalTerm(dictionary.named(atomSign)),
+          new AlternativeTerm(
+              new SequenceTerm(
+                  dictionary.namedWithAlias(atomDecimalNumeral, atomFloatWholePart),
+                  StringReaderTerms.character("."),
+                  new CutTerm(),
+                  new OptionalTerm(dictionary.namedWithAlias(atomDecimalNumeral, atomFloatFractionPart)),
+                  new OptionalTerm(dictionary.named(atomFloatExponentPart)),
+                  new OptionalTerm(dictionary.named(atomFloatTypeSuffix)),
+              ),
+              new SequenceTerm(
+                  StringReaderTerms.character("."),
+                  new CutTerm(),
+                  dictionary.namedWithAlias(atomDecimalNumeral, atomFloatFractionPart),
+                  new OptionalTerm(dictionary.named(atomFloatExponentPart)),
+                  new OptionalTerm(dictionary.named(atomFloatTypeSuffix)),
+              ),
+              new SequenceTerm(
+                  dictionary.namedWithAlias(atomDecimalNumeral, atomFloatWholePart),
+                  dictionary.named(atomFloatExponentPart),
+                  new CutTerm(),
+                  new OptionalTerm(dictionary.named(atomFloatTypeSuffix)),
+              ),
+              new SequenceTerm(
+                  dictionary.namedWithAlias(atomDecimalNumeral, atomFloatWholePart),
+                  new OptionalTerm(dictionary.named(atomFloatExponentPart)),
+                  dictionary.named(atomFloatTypeSuffix),
+              ),
+          ),
+      ),
+      state => {
+        const sign = state.getScope().getOrDefault(atomSign, Sign.PLUS);
+        const wholePart = state.getScope().get(atomFloatWholePart);
+        const fractionPart = state.getScope().get(atomFloatFractionPart);
+        const exponentPart = state.getScope().get(atomFloatExponentPart);
+        const suffix = state.getScope().get(atomFloatTypeSuffix);
+        return createFloat(sign, wholePart, fractionPart, exponentPart, suffix, state);
+      },
+  );
+
+  const atomStringHex2 = new Atom<string>("string_hex_2");
+  dictionary.putRule(atomStringHex2, new SimpleHexLiteralParseRule(2));
+  const atomStringHex4 = new Atom<string>("string_hex_4");
+  dictionary.putRule(atomStringHex4, new SimpleHexLiteralParseRule(4));
+  const atomStringHex8 = new Atom<string>("string_hex_8");
+  dictionary.putRule(atomStringHex8, new SimpleHexLiteralParseRule(8));
+
+  const atomStringUnicodeName = new Atom<string>("string_unicode_name");
+  dictionary.putRule(atomStringUnicodeName, new GreedyPatternParseRule(UNICODE_NAME, ERROR_INVALID_CHARACTER_NAME));
+  const atomStringEscapeSequence = new Atom<string>("string_escape_sequence");
+  dictionary.putComplex(
+      atomStringEscapeSequence,
+      new AlternativeTerm(
+          new SequenceTerm(StringReaderTerms.character("b"), new MarkerTerm(atomStringEscapeSequence, "\b")),
+          new SequenceTerm(StringReaderTerms.character("s"), new MarkerTerm(atomStringEscapeSequence, " ")),
+          new SequenceTerm(StringReaderTerms.character("t"), new MarkerTerm(atomStringEscapeSequence, "\t")),
+          new SequenceTerm(StringReaderTerms.character("n"), new MarkerTerm(atomStringEscapeSequence, "\n")),
+          new SequenceTerm(StringReaderTerms.character("f"), new MarkerTerm(atomStringEscapeSequence, "\f")),
+          new SequenceTerm(StringReaderTerms.character("r"), new MarkerTerm(atomStringEscapeSequence, "\r")),
+          new SequenceTerm(StringReaderTerms.character("\\"), new MarkerTerm(atomStringEscapeSequence, "\\")),
+          new SequenceTerm(StringReaderTerms.character("'"), new MarkerTerm(atomStringEscapeSequence, "'")),
+          new SequenceTerm(StringReaderTerms.character("\""), new MarkerTerm(atomStringEscapeSequence, "\"")),
+          new SequenceTerm(StringReaderTerms.character("x"), dictionary.named(atomStringHex2)),
+          new SequenceTerm(StringReaderTerms.character("u"), dictionary.named(atomStringHex4)),
+          new SequenceTerm(StringReaderTerms.character("U"), dictionary.named(atomStringHex8)),
+          new SequenceTerm(
+              StringReaderTerms.character("N"),
+              StringReaderTerms.character("{"),
+              dictionary.named(atomStringUnicodeName),
+              StringReaderTerms.character("}"),
+          ),
+      ),
+      state => {
+        const escapeSequence = state.getScope().getAny(atomStringEscapeSequence);
+        if (escapeSequence !== undefined && escapeSequence !== null) {
+          return escapeSequence;
+        }
+        const anyHexString = state.getScope().getAny(atomStringHex2, atomStringHex4, atomStringHex8);
+        if (anyHexString !== undefined && anyHexString !== null) {
+          const codePoint = parseInt(anyHexString, Base.HEX);
+          if (!isValidCodePoint(codePoint)) {
+            state.getErrorCollector().store(state.mark(), ERROR_INVALID_CODEPOINT(codePoint));
+            return undefined;
+          }
+          return String.fromCodePoint(codePoint);
+        }
+        const unicodeName = state.getScope().getOrThrow(atomStringUnicodeName);
+        // TODO: how to re-implement Character#codePointOf?
+        state.getErrorCollector().store(state.mark(), ERROR_INVALID_CHARACTER_NAME);
+        return undefined;
+      },
+  );
+
+  const atomStringPlainContents = new Atom<string>("string_plain_contents");
+  dictionary.putRule(atomStringPlainContents, PLAIN_STRING_CHUNK);
+  const atomStringChunks = new Atom<string[]>("string_chunks");
+  const atomStringContents = new Atom<string>("string_contents");
+  const atomSingleQuotedStringChunk = new Atom<string>("single_quoted_string_chunk");
+  const singleQuotedStringChunkRule = dictionary.put(
+      atomSingleQuotedStringChunk,
+      new AlternativeTerm(
+          dictionary.namedWithAlias(atomStringPlainContents, atomStringContents),
+          new SequenceTerm(
+              StringReaderTerms.character("\\"),
+              dictionary.namedWithAlias(atomStringEscapeSequence, atomStringContents),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.character("\""),
+              new MarkerTerm(atomStringContents, "\""),
+          ),
+      ),
+      state => state.getScope().getOrThrow(atomStringContents),
+  );
+  const atomSingleQuotedStringContents = new Atom<string>("single_quoted_string_contents");
+  dictionary.put(
+      atomSingleQuotedStringContents,
+      new RepeatedTerm(singleQuotedStringChunkRule, atomStringChunks),
+      state => state.getScope().getOrThrow(atomStringChunks).join(""),
+  );
+
+  const atomDoubleQuotedStringChunk = new Atom<string>("double_quoted_string_chunk");
+  const doubleQuotedStringChunkRule = dictionary.put(
+      atomDoubleQuotedStringChunk,
+      new AlternativeTerm(
+          dictionary.namedWithAlias(atomStringPlainContents, atomStringContents),
+          new SequenceTerm(
+              StringReaderTerms.character("\\"),
+              dictionary.namedWithAlias(atomStringEscapeSequence, atomStringContents),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.character("'"),
+              new MarkerTerm(atomStringContents, "'"),
+          ),
+      ),
+      state => state.getScope().getOrThrow(atomStringContents),
+  );
+  const atomDoubleQuotedStringContents = new Atom<string>("double_quoted_string_contents");
+  dictionary.put(
+      atomDoubleQuotedStringContents,
+      new RepeatedTerm(doubleQuotedStringChunkRule, atomStringChunks),
+      state => state.getScope().getOrThrow(atomStringChunks).join(""),
+  );
+
+  const atomQuotedStringLiteral = new Atom<string>("quoted_string_literal");
+  dictionary.put(
+      atomQuotedStringLiteral,
+      new AlternativeTerm(
+          new SequenceTerm(
+              StringReaderTerms.character("\""),
+              new CutTerm(),
+              new OptionalTerm(dictionary.namedWithAlias(atomDoubleQuotedStringContents, atomStringContents)),
+              StringReaderTerms.character("\""),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.character("'"),
+              new OptionalTerm(dictionary.namedWithAlias(atomSingleQuotedStringContents, atomStringContents)),
+              StringReaderTerms.character("'"),
+          ),
+      ),
+      state => state.getScope().getOrThrow(atomStringContents),
+  );
+  const atomUnquotedString = new Atom<string>("unquoted_string");
+  dictionary.putRule(atomUnquotedString, new UnquotedStringParseRule(1, ERROR_EXPECTED_UNQUOTED_STRING));
+
+  const atomLiteral = new Atom<Tag<any>>("literal");
+  const atomArguments = new Atom<Tag<any>[]>("arguments");
+  dictionary.put(
+      atomArguments,
+      new RepeatedWithSeparatorTerm(
+          dictionary.forward(atomLiteral),
+          atomArguments,
+          StringReaderTerms.character(","),
+      ),
+      state => state.getScope().getOrThrow(atomArguments),
+  );
+
+  // TODO stringtag?
+  const atomUnquotedStringOrBuiltin = new Atom<Tag<any>>("unquoted_string_or_builtin");
+  dictionary.putComplex(
+      atomUnquotedStringOrBuiltin,
+      new SequenceTerm(
+          dictionary.named(atomUnquotedString),
+          new OptionalTerm(
+              new SequenceTerm(
+                  StringReaderTerms.character("("),
+                  dictionary.named(atomArguments),
+                  StringReaderTerms.character(")"),
+              ),
+          ),
+      ),
+      state => {
+        const sequence = state.getScope().getOrThrow(atomUnquotedString);
+        if (!sequence.length || !isAllowedToStartUnquotedString(sequence[0])) {
+          state.getErrorCollector().store(state.mark(), ERROR_INVALID_UNQUOTED_START);
+          return undefined;
+        }
+        const args = state.getScope().get(atomArguments);
+        if (args !== undefined && args !== null) {
+          // TODO what the fuck are operations?
+        } else if (IGNORE_CASE_COMPARATOR.compare(sequence, "true") === 0) {
+          return BooleanTag.true();
+        } else if (IGNORE_CASE_COMPARATOR.compare(sequence, "false") === 0) {
+          return BooleanTag.false();
+        } else {
+          return new StringTag(sequence);
+        }
+      },
+  );
+
+  const atomMapKey = new Atom<string>("map_key");
+  dictionary.put(
+      atomMapKey,
+      new AlternativeTerm(
+          dictionary.named(atomQuotedStringLiteral),
+          dictionary.named(atomUnquotedString),
+      ),
+      state => state.getScope().getAnyOrThrow(atomQuotedStringLiteral, atomUnquotedString),
+  );
+  const atomMapEntry = new Atom<MapEntry<string, Tag<any>>>("map_entry");
+  const mapEntryRule = dictionary.putComplex(
+      atomMapEntry,
+      new SequenceTerm(
+          dictionary.named(atomMapKey),
+          StringReaderTerms.character(":"),
+          dictionary.named(atomLiteral),
+      ),
+      state => {
+        const key = state.getScope().getOrThrow(atomMapKey);
+        if (!key.length) {
+          state.getErrorCollector().store(state.mark(), ERROR_EMPTY_KEY);
+          return undefined;
+        }
+        const tag = state.getScope().getOrThrow(atomLiteral);
+        return {key, value: tag};
+      },
+  );
+  const atomMapEntries = new Atom<MapEntry<string, Tag<any>>[]>("map_entries");
+  dictionary.put(
+      atomMapEntries,
+      new RepeatedWithSeparatorTerm(
+          mapEntryRule,
+          atomMapEntries,
+          StringReaderTerms.character(","),
+      ),
+      state => state.getScope().getOrThrow(atomMapEntries),
+  );
+  const atomMapLiteral = new Atom<CompoundTag>("map_literal");
+  dictionary.put(
+      atomMapLiteral,
+      new SequenceTerm(
+          // TODO paper tracks depth here?
+          StringReaderTerms.character("{"),
+          dictionary.named(atomMapEntries),
+          StringReaderTerms.character("}"),
+      ),
+      state => {
+        const entries = state.getScope().getOrThrow(atomMapEntries);
+        const tag = new CompoundTag();
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          tag.set(entry.key, entry.value);
+        }
+        return tag;
+      },
+  );
+
+  // TODO continue
+};
 
 abstract class ArrayPrefix<T extends ArrayTag<any>> {
   private readonly defaultType: TypeSuffix;
