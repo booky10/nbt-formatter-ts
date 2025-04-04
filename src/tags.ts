@@ -342,3 +342,21 @@ export class BooleanTag extends NumberTag<boolean> {
 }
 const BOOLEAN_TRUE = new BooleanTag(true);
 const BOOLEAN_FALSE = new BooleanTag(false);
+
+// virtual tag to represent SNBT operations
+export type SnbtOperation = {
+  operation: string;
+  arguments: Tag<any>[];
+}
+export class SnbtOperationTag extends Tag<SnbtOperation> {
+  constructor(value: SnbtOperation) {
+    super(undefined, value);
+  }
+  asString0(indent: number, indentLevel: number): string {
+    const {operation, arguments: args} = this.getValue();
+    const argsString = args
+        .map(tag => tag.asString0(indent, indentLevel))
+        .join(`,${indent ? " " : ""}`);
+    return `${operation}(${argsString})`;
+  }
+}

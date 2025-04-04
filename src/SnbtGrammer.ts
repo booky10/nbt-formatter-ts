@@ -13,7 +13,7 @@ import {
   IntTag, ListTag, LongArrayTag,
   LongTag,
   NumberTag,
-  ShortTag, StringTag, Tag,
+  ShortTag, SnbtOperationTag, StringTag, Tag,
 } from "./tags.js";
 import Grammer from "./grammer/commands/Grammer.js";
 import Dictionary from "./grammer/Dictionary.js";
@@ -644,7 +644,11 @@ export const createParser = (): Grammer<Tag<any>> => {
         }
         const args = state.getScope().get(atomArguments);
         if (args !== undefined && args !== null) {
-          // TODO what the fuck are operations?
+          // don't run snbt operations, instead retain them using a custom operation tag
+          return new SnbtOperationTag({
+            operation: sequence,
+            arguments: args,
+          });
         } else if (IGNORE_CASE_COMPARATOR.compare(sequence, "true") === 0) {
           return BooleanTag.true();
         } else if (IGNORE_CASE_COMPARATOR.compare(sequence, "false") === 0) {
