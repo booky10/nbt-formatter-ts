@@ -3,6 +3,17 @@ import NamedRule from "./NamedRule.js";
 import Control from "./Control.js";
 import ErrorCollector from "./ErrorCollector.js";
 
+export const parseTopRule = <S, T>(state: ParseState<S>, rule: NamedRule<S, T>): T | undefined => {
+  const parsed = state.parse(rule);
+  if (parsed !== undefined && parsed !== null) {
+    state.getErrorCollector().finish(state.mark());
+  }
+  if (!state.getScope().hasOnlySingleFrame()) {
+    throw new Error(`Malformed scope: ${state.getScope()}`);
+  }
+  return parsed;
+};
+
 export default interface ParseState<S> {
 
   getScope(): Scope;

@@ -2,7 +2,9 @@ import {assert, growByHalf} from "./util.js";
 import Atom from "./Atom.js";
 
 // generate random frame start marker, javascript doesn't have comparison by object identity as far as I know
+const NOT_FOUND = -1;
 const FRAME_START_MARKER = crypto.randomUUID();
+const ENTRY_STRIDE = 2;
 
 export default class Scope {
   private stack: any[] = new Array<any>(128);
@@ -16,18 +18,18 @@ export default class Scope {
   }
 
   private valueIndex(name: Atom<any>): number {
-    for (let i = this.topEntryKeyIndex; i > this.topMarkerKeyIndex; i -= 2) {
+    for (let i = this.topEntryKeyIndex; i > this.topMarkerKeyIndex; i -= ENTRY_STRIDE) {
       const entryName = this.stack[i];
       assert(entryName instanceof Atom);
       if (entryName === name) {
         return i + 1;
       }
     }
-    return -1;
+    return NOT_FOUND;
   }
 
   public valueIndexForAny(...names: Atom<any>[]) {
-    for (let i = this.topEntryKeyIndex; i > this.topMarkerKeyIndex; i -= 2) {
+    for (let i = this.topEntryKeyIndex; i > this.topMarkerKeyIndex; i -= ENTRY_STRIDE) {
       const entryName = this.stack[i];
       assert(entryName instanceof Atom);
 
@@ -36,13 +38,13 @@ export default class Scope {
         return i + 1;
       }
     }
-    return -1;
+    return NOT_FOUND;
   }
 
   private ensureCapacity(requiredCapacity: number) {
     const stackLength = this.stack.length;
     const nextIndex = this.topEntryKeyIndex + 1;
-    const expectedCapacity = nextIndex + requiredCapacity * 2;
+    const expectedCapacity = nextIndex + requiredCapacity * ENTRY_STRIDE;
     if (expectedCapacity >= stackLength) {
       // I love javascript! (epic joke)
       this.stack.length = growByHalf(stackLength, expectedCapacity + 1);
@@ -51,7 +53,7 @@ export default class Scope {
   }
 
   private setupNewFrame() {
-    this.topEntryKeyIndex += 2;
+    this.topEntryKeyIndex += ENTRY_STRIDE;
     this.stack[this.topEntryKeyIndex] = FRAME_START_MARKER;
     this.stack[this.topEntryKeyIndex + 1] = this.topMarkerKeyIndex;
     this.topMarkerKeyIndex = this.topEntryKeyIndex;
@@ -71,29 +73,29 @@ export default class Scope {
 
   public popFrame() {
     assert(this.topMarkerKeyIndex !== 0);
-    this.topEntryKeyIndex = this.topMarkerKeyIndex - 2;
+    this.topEntryKeyIndex = this.topMarkerKeyIndex - ENTRY_STRIDE;
     this.topMarkerKeyIndex = this.getPreviousMarkerIndex(this.topMarkerKeyIndex);
     assert(this.validateStructure());
   }
 
   public splitFrame() {
     const markerIndex = this.topMarkerKeyIndex;
-    const pivotIndex = (this.topEntryKeyIndex - this.topMarkerKeyIndex) / 2;
+    const pivotIndex = (this.topEntryKeyIndex - this.topMarkerKeyIndex) / ENTRY_STRIDE;
 
     this.ensureCapacity(pivotIndex + 1);
     this.setupNewFrame();
 
-    let newMarkerIndex = markerIndex + 2;
+    let newMarkerIndex = markerIndex + ENTRY_STRIDE;
     let index = this.topEntryKeyIndex;
     for (let i = 0; i < pivotIndex; i++) {
-      index += 2;
+      index += ENTRY_STRIDE;
 
       const entry = this.stack[newMarkerIndex];
       assert(entry !== null && entry !== undefined);
 
       this.stack[index] = entry;
       this.stack[index + 1] = undefined;
-      newMarkerIndex += 2;
+      newMarkerIndex += ENTRY_STRIDE;
     }
 
     this.topEntryKeyIndex = index;
@@ -101,7 +103,7 @@ export default class Scope {
   }
 
   public clearFrameValues() {
-    for (let i = this.topEntryKeyIndex; i > this.topMarkerKeyIndex; i -= 2) {
+    for (let i = this.topEntryKeyIndex; i > this.topMarkerKeyIndex; i -= ENTRY_STRIDE) {
       assert(this.stack[i] instanceof Atom);
       this.stack[i + 1] = undefined;
     }
@@ -113,8 +115,8 @@ export default class Scope {
     let markerIndex = previousMarkerIndex;
     let keyIndex = this.topMarkerKeyIndex;
     while (keyIndex < this.topEntryKeyIndex) {
-      markerIndex += 2;
-      keyIndex += 2;
+      markerIndex += ENTRY_STRIDE;
+      keyIndex += ENTRY_STRIDE;
 
       const entryName = this.stack[keyIndex];
       assert(entryName instanceof Atom);
@@ -138,11 +140,11 @@ export default class Scope {
   public put<T>(name: Atom<T>, value: T | undefined) {
     const normedValue = value === null ? undefined : value;
     const index = this.valueIndex(name);
-    if (index !== -1) {
+    if (index !== NOT_FOUND) {
       this.stack[index] = normedValue;
     } else {
       this.ensureCapacity(1);
-      this.topEntryKeyIndex += 2;
+      this.topEntryKeyIndex += ENTRY_STRIDE;
       this.stack[this.topEntryKeyIndex] = name;
       this.stack[this.topEntryKeyIndex + 1] = normedValue;
     }
@@ -151,12 +153,12 @@ export default class Scope {
 
   public get<T>(name: Atom<T>): T | undefined {
     const index = this.valueIndex(name);
-    return index !== -1 ? this.stack[index] : undefined;
+    return index !== NOT_FOUND ? this.stack[index] : undefined;
   }
 
   public getOrThrow<T>(name: Atom<T>): T {
     const index = this.valueIndex(name);
-    if (index === -1) {
+    if (index === NOT_FOUND) {
       throw new Error(`No value for atom ${name}`);
     }
     return this.stack[index];
@@ -164,17 +166,17 @@ export default class Scope {
 
   public getOrDefault<T>(name: Atom<T>, defaultValue: T): T {
     const index = this.valueIndex(name);
-    return index !== -1 ? this.stack[index] : defaultValue;
+    return index !== NOT_FOUND ? this.stack[index] : defaultValue;
   }
 
   public getAny<T>(...names: Atom<T>[]): T {
     const index = this.valueIndexForAny(...names);
-    return index !== -1 ? this.stack[index] : undefined;
+    return index !== NOT_FOUND ? this.stack[index] : undefined;
   }
 
   public getAnyOrThrow<T>(...names: Atom<T>[]): T {
     const index = this.valueIndexForAny(...names);
-    if (index === -1) {
+    if (index === NOT_FOUND) {
       throw new Error(`No value for atoms ${names}`);
     }
     return this.stack[index];
@@ -183,7 +185,7 @@ export default class Scope {
   public toString(): string {
     let builder = "";
     let firstEntry = true;
-    for (let i = 0; i <= this.topEntryKeyIndex; i += 2) {
+    for (let i = 0; i <= this.topEntryKeyIndex; i += ENTRY_STRIDE) {
       const name = this.stack[i];
       const entry = this.stack[i + 1];
       if (name === FRAME_START_MARKER) {
@@ -217,7 +219,7 @@ export default class Scope {
     assert(this.topMarkerKeyIndex >= 0);
     assert(this.topEntryKeyIndex >= this.topMarkerKeyIndex);
 
-    for (let i = 0; i < this.topEntryKeyIndex; i += 2) {
+    for (let i = 0; i < this.topEntryKeyIndex; i += ENTRY_STRIDE) {
       const entry = this.stack[i];
       if (entry !== FRAME_START_MARKER && !(entry instanceof Atom)) {
         return false;
