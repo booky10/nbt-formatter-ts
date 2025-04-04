@@ -196,11 +196,13 @@ export class StringTag extends Tag<string> {
   }
 }
 export class ListTag<T extends Tag<any>> extends ArrayTag<T> {
-  private listType?: NbtType;
+  private readonly listType?: NbtType;
+
   constructor(type?: NbtType, value: T[] = new Array<T>()) {
     super(NbtType.LIST, value);
     this.listType = type;
   }
+
   private newlines() {
     const listType = this.getListType();
     return listType === NbtType.COMPOUND || listType === NbtType.LIST || listType === NbtType.BYTE_ARRAY

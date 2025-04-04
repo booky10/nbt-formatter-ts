@@ -10,7 +10,7 @@ import {
   ByteTag, CompoundTag,
   DoubleTag,
   FloatTag, IntArrayTag,
-  IntTag, LongArrayTag,
+  IntTag, ListTag, LongArrayTag,
   LongTag,
   NumberTag,
   ShortTag, StringTag, Tag,
@@ -22,7 +22,7 @@ import Atom from "./grammer/Atom.js";
 import {
   AlternativeTerm,
   CutTerm,
-  FailTerm,
+  FailTerm, LookAheadTerm,
   MarkerTerm,
   OptionalTerm,
   RepeatedTerm, RepeatedWithSeparatorTerm,
@@ -623,7 +623,6 @@ export const createParser = (): Grammer<Tag<any>> => {
       state => state.getScope().getOrThrow(atomArguments),
   );
 
-  // TODO stringtag?
   const atomUnquotedStringOrBuiltin = new Atom<Tag<any>>("unquoted_string_or_builtin");
   dictionary.putComplex(
       atomUnquotedStringOrBuiltin,
@@ -697,7 +696,7 @@ export const createParser = (): Grammer<Tag<any>> => {
   dictionary.put(
       atomMapLiteral,
       new SequenceTerm(
-          // TODO paper tracks depth here?
+          // TODO paper tracks depth here
           StringReaderTerms.character("{"),
           dictionary.named(atomMapEntries),
           StringReaderTerms.character("}"),
@@ -713,7 +712,113 @@ export const createParser = (): Grammer<Tag<any>> => {
       },
   );
 
-  // TODO continue
+  const atomListEntries = new Atom<Tag<any>[]>("list_entries");
+  dictionary.put(
+      atomListEntries,
+      new RepeatedWithSeparatorTerm(
+          dictionary.forward(atomLiteral),
+          atomListEntries,
+          StringReaderTerms.character(","),
+      ),
+      state => state.getScope().getOrThrow(atomListEntries),
+  );
+  const atomArrayPrefix = new Atom<ArrayPrefix<any>>("array_prefix");
+  dictionary.put(
+      atomArrayPrefix,
+      new AlternativeTerm(
+          new SequenceTerm(
+              StringReaderTerms.character("B"),
+              new MarkerTerm(atomArrayPrefix, ARRAY_PREFIX_BYTE),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.character("L"),
+              new MarkerTerm(atomArrayPrefix, ARRAY_PREFIX_LONG),
+          ),
+          new SequenceTerm(
+              StringReaderTerms.character("I"),
+              new MarkerTerm(atomArrayPrefix, ARRAY_PREFIX_INT),
+          ),
+      ),
+      state => state.getScope().getOrThrow(atomArrayPrefix),
+  );
+  const atomIntArrayEntries = new Atom<IntegerLiteral[]>("int_array_entries");
+  dictionary.put(
+      atomIntArrayEntries,
+      new RepeatedWithSeparatorTerm(
+          integerLiteralRule,
+          atomIntArrayEntries,
+          StringReaderTerms.character(","),
+      ),
+      state => state.getScope().getOrThrow(atomIntArrayEntries),
+  );
+  const atomListLiteral = new Atom<ArrayTag<any>>("list_literal");
+  dictionary.putComplex(
+      atomListLiteral,
+      new SequenceTerm(
+          // TODO paper tracks depth here
+          StringReaderTerms.character("["),
+          new AlternativeTerm(
+              new SequenceTerm(
+                  dictionary.named(atomArrayPrefix),
+                  StringReaderTerms.character(";"),
+                  dictionary.named(atomIntArrayEntries),
+              ),
+              dictionary.named(atomListEntries),
+          ),
+          StringReaderTerms.character("]"),
+      ),
+      state => {
+        const arrayPrefix = state.getScope().get(atomArrayPrefix);
+        if (arrayPrefix !== undefined && arrayPrefix !== null) {
+          const arrayEntries = state.getScope().getOrThrow(atomIntArrayEntries);
+          return !arrayEntries.length ? arrayPrefix.createEmpty() : arrayPrefix.create(arrayEntries, state);
+        }
+        const listEntries = state.getScope().getOrThrow(atomListEntries);
+        return !listEntries.length ? new ListTag() : new ListTag(listEntries[0].getType(), listEntries);
+      },
+  );
+
+  const literalRule = dictionary.putComplex(
+      atomLiteral,
+      new AlternativeTerm(
+          new SequenceTerm(
+              new LookAheadTerm(NUMBER_LOOKAHEAD),
+              new AlternativeTerm(
+                  dictionary.namedWithAlias(atomFloatLiteral, atomLiteral),
+                  dictionary.named(atomIntegerLiteral),
+              ),
+          ),
+          new SequenceTerm(
+              new LookAheadTerm(StringReaderTerms.characters("\"", "'")),
+              new CutTerm(),
+              dictionary.named(atomQuotedStringLiteral),
+          ),
+          new SequenceTerm(
+              new LookAheadTerm(StringReaderTerms.character("{")),
+              new CutTerm(),
+              dictionary.namedWithAlias(atomMapLiteral, atomLiteral),
+          ),
+          new SequenceTerm(
+              new LookAheadTerm(StringReaderTerms.character("[")),
+              new CutTerm(),
+              dictionary.namedWithAlias(atomListLiteral, atomLiteral),
+          ),
+          dictionary.namedWithAlias(atomUnquotedStringOrBuiltin, atomLiteral),
+      ),
+      state => {
+        const string = state.getScope().get(atomQuotedStringLiteral);
+        if (string !== undefined && string !== null) {
+          return new StringTag(string);
+        }
+        const integer = state.getScope().get(atomIntegerLiteral);
+        if (integer !== undefined && integer !== null) {
+          return integer.create(state);
+        }
+        return state.getScope().getOrThrow(atomLiteral);
+      },
+  );
+
+  return new Grammer<Tag<any>>(dictionary, literalRule);
 };
 
 abstract class ArrayPrefix<T extends ArrayTag<any>> {

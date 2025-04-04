@@ -83,7 +83,7 @@ export class LookAheadTerm<S> implements Term<S> {
   private readonly term: Term<S>;
   private readonly positive: boolean;
 
-  constructor(term: Term<S>, positive: boolean) {
+  constructor(term: Term<S>, positive: boolean = true) {
     this.term = term;
     this.positive = positive;
   }
