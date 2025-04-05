@@ -26,3 +26,5 @@ export type MapEntry<K, V> = {
   key: K,
   value: V,
 }
+
+export const nanos = (): number => Math.ceil(performance.now() * 1_000_000);

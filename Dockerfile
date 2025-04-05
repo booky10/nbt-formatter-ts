@@ -13,9 +13,8 @@ FROM node:lts-slim
 USER node
 WORKDIR /home/node/app
 
-COPY --from=builder --chown=node:node /work/clean/node_modules /home/node/app/node_modules
 COPY --from=builder --chown=node:node /work/clean/public /home/node/app/public
 COPY --from=builder --chown=node:node /work/clean/dist /home/node/app/dist
 
-ENTRYPOINT ["/usr/bin/env", "NODE_PATH=/app/node_modules", "NODE_ENV=production"]
-CMD ["/usr/local/bin/node", "./dist/index.js"]
+ENTRYPOINT ["/usr/bin/env", "NODE_ENV=production"]
+CMD ["/usr/local/bin/node", "./dist/index.cjs"]

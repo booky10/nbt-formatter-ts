@@ -1,13 +1,13 @@
 import {Express} from "express";
 import {parseTag} from "./parser.js";
 import {Tag} from "./tags.js";
+import {nanos} from "./common/util.js";
 
 const DEFAULT_INDENT = 2;
 const MIN_INDENT = 0;
 const MAX_INDENT = 10;
 const DEFAULT_RESOLVE = "false";
 
-const nanos = (): number => Math.ceil(performance.now() * 1_000_000);
 const register = (app: Express) =>
     app.post("/api/v1/format", (req, res) => {
       const totalStart = nanos();

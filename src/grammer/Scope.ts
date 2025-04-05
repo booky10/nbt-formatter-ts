@@ -3,7 +3,7 @@ import Atom from "./Atom.js";
 
 // generate random frame start marker, javascript doesn't have comparison by object identity as far as I know
 const NOT_FOUND = -1;
-const FRAME_START_MARKER = crypto.randomUUID();
+const FRAME_START_MARKER = Math.random().toString();
 const ENTRY_STRIDE = 2;
 
 export default class Scope {
