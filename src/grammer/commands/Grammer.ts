@@ -34,8 +34,10 @@ export default class Grammer<T> {
 
     if (entries.length === 1) {
       throw entries[0];
-    } else {
+    } else if (entries.length) {
       throw new Error(`Failed to parse: ${entries.join(", ")}`);
+    } else {
+      throw new Error(`Failed to parse with unknown error`);
     }
   }
 }

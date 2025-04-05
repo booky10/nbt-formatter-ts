@@ -37,6 +37,9 @@ export class ErrorCollectorLongestOnly<S> implements ErrorCollector<S> {
   }
 
   private addErrorEntry(reason: any) {
+    if (typeof reason === "function") {
+      reason = reason();
+    }
     const entryLength = this.entries.length;
     if (this.nextErrorEntry >= entryLength) {
       this.entries.length = growByHalf(entryLength, this.nextErrorEntry + 1);
