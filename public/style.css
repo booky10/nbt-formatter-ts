@@ -23,6 +23,19 @@ p {
     width: 100%;
 }
 
+.inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
+
+.inputs > div {
+    display: flex;
+    flex-direction: row;
+    gap: 0.42em;
+    justify-content: center;
+}
+
 #input {
     width: 100%;
     white-space: pre;

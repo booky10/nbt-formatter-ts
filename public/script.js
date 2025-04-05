@@ -3,6 +3,8 @@ const input = document.getElementById("input");
 const status = document.getElementById("status");
 const message = document.getElementById("message");
 
+/** @type HTMLInputElement **/
+const resolveCheckbox = document.getElementById("resolve");
 const copyButton = document.getElementById("copy");
 const reformatButton = document.getElementById("reformat");
 const minifyButton = document.getElementById("minify");
@@ -12,18 +14,25 @@ function reformat(indent) {
     status.innerText = "Formatting...";
     message.innerText = "";
 
+    resolveCheckbox.disabled = true;
     copyButton.disabled = true;
     reformatButton.disabled = true;
     minifyButton.disabled = true;
 
+    const requestUrl = new URL(location.href);
+    requestUrl.pathname = "/api/v1/format";
+    requestUrl.searchParams.set("indent", indent.toString());
+    requestUrl.searchParams.set("resolve", resolveCheckbox.checked.toString());
+
     const req = new XMLHttpRequest();
-    req.open("POST", `${location.href}api/v1/format?indent=${indent}`, true);
+    req.open("POST", requestUrl.toString(), true);
     req.onreadystatechange = () => {
         if (req.readyState !== 4) {
             return;
         }
 
         input.disabled = false;
+        resolveCheckbox.disabled = false;
         copyButton.disabled = false;
         reformatButton.disabled = false;
         minifyButton.disabled = false;

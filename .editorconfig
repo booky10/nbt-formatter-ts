@@ -1,3 +1,12 @@
+[*]
+ij_javascript_force_semicolon_style = true
+ij_typescript_force_semicolon_style = true
+
+[*.js]
+indent_size = 4
+indent_style = space
+ij_continuation_indent_size = 4
+
 [*.ts]
 indent_size = 2
 indent_style = space

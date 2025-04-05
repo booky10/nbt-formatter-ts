@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link href="style.css?v=3" rel="stylesheet" type="text/css"/>
-    <script src="script.js?v=3" type="text/javascript" defer></script>
+    <link href="style.css?v=4" rel="stylesheet" type="text/css"/>
+    <script src="script.js?v=4" type="text/javascript" defer></script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
@@ -32,10 +32,16 @@
                   placeholder="Insert NBT here" rows="10"></textarea>
     </div>
 
-    <div>
-        <button id="reformat">Reformat</button>
-        <button id="minify">Minify</button>
-        <button id="copy">Copy</button>
+    <div class="inputs">
+        <div>
+            <label for="resolve">Resolve Tags?</label>
+            <input id="resolve" type="checkbox">
+        </div>
+        <div>
+            <button id="reformat">Reformat</button>
+            <button id="minify">Minify</button>
+            <button id="copy">Copy</button>
+        </div>
     </div>
 
     <div>
