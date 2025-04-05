@@ -1,6 +1,7 @@
 import ParseState from "./grammer/ParseState.js";
 import StringReader from "./common/StringReader.js";
-import {BooleanTag, NumberTag, Tag} from "./tags.js";
+import {BooleanTag, IntArrayTag, NumberTag, StringTag, Tag} from "./tags.js";
+import * as uuid from "uuid";
 
 const ERROR_EXPECTED_STRING_UUID = () =>
     new Error("Expected a string representing a valid UUID");
@@ -25,6 +26,21 @@ const OPERATIONS_MAP: { [id: string]: Operation } = {
       }
       const bool = tag.getNumber() !== 0;
       return new BooleanTag(bool);
+    },
+  },
+  uuid: {
+    argCount: 1,
+    execute: (state, args) => {
+      const tag = args[0];
+      if (!(tag instanceof StringTag) || !uuid.validate(tag.getValue())) {
+        state.getErrorCollector().store(state.mark(), ERROR_EXPECTED_STRING_UUID);
+        return undefined;
+      }
+      const uuidBuf = Buffer.from(uuid.parse(tag.getValue()));
+      return new IntArrayTag([
+        uuidBuf.readInt32BE(0), uuidBuf.readInt32BE(4),
+        uuidBuf.readInt32BE(8), uuidBuf.readInt32BE(12),
+      ]);
     },
   },
 };
