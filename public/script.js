@@ -1,3 +1,4 @@
+/** @type HTMLTextAreaElement **/
 const input = document.getElementById("input");
 const status = document.getElementById("status");
 const message = document.getElementById("message");
@@ -18,7 +19,7 @@ function reformat(indent) {
     const req = new XMLHttpRequest();
     req.open("POST", `${location.href}api/v1/format?indent=${indent}`, true);
     req.onreadystatechange = () => {
-        if (req.readyState != 4) {
+        if (req.readyState !== 4) {
             return;
         }
 
@@ -29,7 +30,7 @@ function reformat(indent) {
 
         const totalTime = (req.getResponseHeader("Total-Time") / 1000000).toFixed(2);
 
-        if (req.status != 200) {
+        if (req.status !== 200) {
             status.innerText = `Error ${req.status} while reformatting${totalTime > 0 ? ` (took ${totalTime}ms)` : ""}:`;
             message.innerText = req.responseText;
             return;
@@ -47,17 +48,17 @@ function reformat(indent) {
     req.send(input.value);
 }
 
-copyButton.onclick = () => {
+copyButton.onclick = async () => {
     input.focus();
     input.select();
 
     if (navigator.clipboard) {
-        navigator.clipboard.writeText(input.value);
+        await navigator.clipboard.writeText(input.value);
     } else {
         // fallback
         document.execCommand("copy");
     }
 };
 
-reformatButton.onclick = (event) => reformat(2);
-minifyButton.onclick = (event) => reformat(0);
+reformatButton.onclick = () => reformat(2);
+minifyButton.onclick = () => reformat(0);

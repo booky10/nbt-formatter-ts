@@ -2,7 +2,7 @@ import "dotenv/config.js";
 
 import express from "express";
 import cors from "cors";
-import { slowDown } from "express-slow-down";
+import {slowDown} from "express-slow-down";
 
 import routes from "./routes.js";
 
@@ -22,24 +22,24 @@ if (trustProxy) {
 }
 
 app.use(cors());
-app.use(express.text({ type: () => true }));
+app.use(express.text({type: () => true}));
 app.use(
-  // allow 5 requests per 30s, then slow down
-  // add 200ms delay per each additional request
-  slowDown({
-    windowMs: 30 * 1000,
-    delayAfter: 5,
-    delayMs: (hits) => hits * 200,
-    validate: { trustProxy: false },
-    skip: (req, res) => !req.path.startsWith("/api"),
-  })
+    // allow 5 requests per 30s, then slow down
+    // add 200ms delay per each additional request
+    slowDown({
+      windowMs: 30 * 1000,
+      delayAfter: 5,
+      delayMs: (hits) => hits * 200,
+      validate: {trustProxy: false},
+      skip: (req) => !req.path.startsWith("/api"),
+    }),
 );
 
 // register routes
 routes(app);
 
 // register api redirect route
-app.get("/api", (req, res) => res.redirect(apiRedir));
+app.get("/api", (_req, res) => res.redirect(apiRedir));
 
 // register static frontend page
 if (frontendEnabled) {
@@ -49,7 +49,7 @@ if (frontendEnabled) {
 // handle errors
 app.use((err, req, res, next) => {
   console.error(`Received error from ${req.ip} with url ${req.url}`, err);
-  res.status(500).send({ status: 500, message: "server error" });
+  res.status(500).send({status: 500, message: "server error"});
 });
 
 // boot process
