@@ -1,5 +1,8 @@
 import {escapeControlCharacters} from "./SnbtGrammer.js";
 import {IGNORE_CASE_COMPARATOR} from "./common/util.js";
+import ParseState from "./grammer/ParseState.js";
+import StringReader from "./common/StringReader.js";
+import {executeSnbtOperation} from "./operations.js";
 
 export enum NbtType {
   END = 0,
@@ -79,6 +82,10 @@ export abstract class Tag<T> {
   }
 
   abstract asString0(indent: number, indentLevel: number): string;
+
+  public resolve(state: ParseState<StringReader>): Tag<any> | undefined {
+    return this;
+  }
 
   public getValue(): T {
     return this.value;
@@ -339,6 +346,10 @@ export class BooleanTag extends NumberTag<boolean> {
   asString0(indent: number, indentLevel: number): string {
     return this.getValue() ? "true" : "false";
   }
+  resolve(state: ParseState<StringReader>): Tag<any> | undefined {
+    const tag = this.getValue() ? new ByteTag(1) : new ByteTag(0);
+    return tag.resolve(state);
+  }
 }
 const BOOLEAN_TRUE = new BooleanTag(true);
 const BOOLEAN_FALSE = new BooleanTag(false);
@@ -358,5 +369,10 @@ export class SnbtOperationTag extends Tag<SnbtOperation> {
         .map(tag => tag.asString0(indent, indentLevel))
         .join(`,${indent ? " " : ""}`);
     return `${operation}(${argsString})`;
+  }
+  resolve(state: ParseState<StringReader>): Tag<any> | undefined {
+    const {operation, arguments: args} = this.getValue();
+    const operatedTag = executeSnbtOperation(state, operation, args);
+    return operatedTag?.resolve(state);
   }
 }

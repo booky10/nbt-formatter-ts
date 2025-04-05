@@ -5,6 +5,7 @@ import { Tag } from "./tags.js";
 const DEFAULT_INDENT = 2;
 const MIN_INDENT = 0;
 const MAX_INDENT = 10;
+const DEFAULT_RESOLVE = "false";
 
 const nanos = (): number => Math.ceil(performance.now() * 1_000_000);
 const register = (app: Express) =>
@@ -14,12 +15,13 @@ const register = (app: Express) =>
     const suppliedIndent = Number(req.query.indent || DEFAULT_INDENT);
     const indent = Math.min(MAX_INDENT, Math.max(MIN_INDENT, suppliedIndent));
     res.header("Indent", `${indent}`);
+    const resolveTags = (req.query.resolve ?? DEFAULT_RESOLVE) === "true";
 
     const parseStart = nanos();
     let nbt: Tag<any> | undefined = undefined;
     let nbtError: string | undefined = undefined;
     try {
-      nbt = parseTag(req.body);
+      nbt = parseTag(req.body, resolveTags);
     } catch (error) {
       nbtError = `Nbt: ${error.toString()}`;
     }

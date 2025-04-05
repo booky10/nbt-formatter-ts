@@ -20,11 +20,12 @@ class TagParser<T> {
   }
 }
 
-const TAG_PARSER = new TagParser<Tag<any>>(createParser());
+const TAG_PARSER = new TagParser<Tag<any>>(createParser(false));
+const TAG_PARSER_RESOLVING = new TagParser<Tag<any>>(createParser(true));
 
-export const parseTag = (string: string): CompoundTag => {
+export const parseTag = (string: string, resolve: boolean): CompoundTag => {
   const reader = new StringReader(string);
-  const tag = TAG_PARSER.parseFully(reader);
+  const tag = (resolve ? TAG_PARSER_RESOLVING : TAG_PARSER).parseFully(reader);
   if (tag instanceof CompoundTag) {
     return tag;
   }

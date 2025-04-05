@@ -37,8 +37,6 @@ const ERROR_EXPECTED_HEX_ESCAPE = (length: number) =>
     new Error(`Expected a character literal of length ${length}`);
 const ERROR_INVALID_CODEPOINT = (codepoint: number) =>
     new Error(`Invalid Unicode character value: ${codepoint}`);
-const ERROR_NO_SUCH_OPERATION = (operation: string) =>
-    new Error(`No such operation: ${operation}`);
 const ERROR_EXPECTED_INTEGER_TYPE = () =>
     new Error("Expected an integer number");
 const ERROR_EXPECTED_FLOAT_TYPE = () =>
@@ -298,7 +296,7 @@ const convertDouble = (state: ParseState<any>, value: string) => {
   }
 };
 
-export const createParser = (): Grammer<Tag<any>> => {
+export const createParser = (resolveTags: boolean): Grammer<Tag<any>> => {
   const dictionary = new Dictionary<StringReader>();
 
   const atomSign = new Atom<Sign>("sign");
@@ -810,15 +808,19 @@ export const createParser = (): Grammer<Tag<any>> => {
           dictionary.namedWithAlias(atomUnquotedStringOrBuiltin, atomLiteral),
       ),
       state => {
+        let tag: Tag<any>;
         const string = state.getScope().get(atomQuotedStringLiteral);
         if (string !== undefined && string !== null) {
-          return new StringTag(string);
+          tag = new StringTag(string);
+        } else {
+          const integer = state.getScope().get(atomIntegerLiteral);
+          if (integer !== undefined && integer !== null) {
+            tag = integer.create(state);
+          } else {
+            tag = state.getScope().getOrThrow(atomLiteral);
+          }
         }
-        const integer = state.getScope().get(atomIntegerLiteral);
-        if (integer !== undefined && integer !== null) {
-          return integer.create(state);
-        }
-        return state.getScope().getOrThrow(atomLiteral);
+        return resolveTags ? tag?.resolve(state) : tag;
       },
   );
 
