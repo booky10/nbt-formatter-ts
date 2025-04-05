@@ -36,10 +36,12 @@ const OPERATIONS_MAP: { [id: string]: Operation } = {
         state.getErrorCollector().store(state.mark(), ERROR_EXPECTED_STRING_UUID);
         return undefined;
       }
-      const uuidBuf = Buffer.from(uuid.parse(tag.getValue()));
+      const uuidBuf = uuid.parse(tag.getValue());
       return new IntArrayTag([
-        uuidBuf.readInt32BE(0), uuidBuf.readInt32BE(4),
-        uuidBuf.readInt32BE(8), uuidBuf.readInt32BE(12),
+        (uuidBuf[0] << 24) | (uuidBuf[1] << 16) | (uuidBuf[2] << 8) | (uuidBuf[3] << 0),
+        (uuidBuf[4] << 24) | (uuidBuf[5] << 16) | (uuidBuf[6] << 8) | (uuidBuf[7] << 0),
+        (uuidBuf[8] << 24) | (uuidBuf[9] << 16) | (uuidBuf[10] << 8) | (uuidBuf[11] << 0),
+        (uuidBuf[12] << 24) | (uuidBuf[13] << 16) | (uuidBuf[14] << 8) | (uuidBuf[15] << 0),
       ]);
     },
   },
