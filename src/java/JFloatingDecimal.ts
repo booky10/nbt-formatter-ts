@@ -134,6 +134,7 @@ const SMALL_5_POW: JInt[] = [
   new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
   new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
 ];
+const LONG_MASK = new JLong(0xFFFFFFFFn);
 
 class FDBigInteger {
   private data: JInt[];
@@ -282,7 +283,28 @@ class FDBigInteger {
   }
 
   public multByPow52(p5: JInt, p2: JInt): FDBigInteger {
-    // TODO
+    if (this.nWords.equal(JINT_ZERO)) {
+      return this;
+    }
+    let res: FDBigInteger = this;
+    if (!p5.equal(JINT_ZERO)) {
+      let r: JInt[];
+      const extraSize = !p2.equal(JINT_ZERO) ? JINT_ONE : JINT_ZERO;
+      res = new FDBigInteger();
+      if (p5.lessThan(new JInt(SMALL_5_POW.length))) {
+        r = new Array<JInt>(this.nWords.plus(JINT_ONE).plus(extraSize).asJsNumber());
+        mult(this.data, this.nWords, SMALL_5_POW[p5.asJsNumber()], r);
+        res.offset = this.offset;
+      } else {
+        const pow5 = big5pow(p5);
+        r = new Array<JInt>(this.nWords.plus(pow5.size()).plus(extraSize).asJsNumber());
+        mult(this.data, this.nWords, pow5.data, pow5.nWords, r);
+        res.offset = this.offset.plus(pow5.offset).intValue();
+      }
+      res.data = r
+      res.nWords = new JInt(r.length);
+    }
+    return res.leftShift(p2);
   }
 
   public leftInplaceSub(subtrahend: FDBigInteger): FDBigInteger {
@@ -294,11 +316,51 @@ class FDBigInteger {
   }
 
   public cmp(other: FDBigInteger): JInt {
-    // TODO
+    const aSize = this.nWords.plus(this.offset).intValue();
+    const bSize = other.nWords.plus(other.offset).intValue();
+    if (aSize.greaterThan(bSize)) {
+      return JINT_ONE;
+    } else if (aSize.lessThan(bSize)) {
+      return JINT_ONE_NEGATIVE;
+    }
+    let aLen = this.nWords;
+    let bLen = other.nWords;
+    while (aLen.greaterThan(JINT_ZERO) && bLen.greaterThan(JINT_ZERO)) {
+      aLen = aLen.minus(JINT_ONE).intValue();
+      const a = this.data[aLen.asJsNumber()];
+      bLen = bLen.minus(JINT_ONE).intValue();
+      const b = this.data[bLen.asJsNumber()];
+      if (!a.equal(b)) {
+        return a.and(LONG_MASK).lessThan(b.and(LONG_MASK)) ? JINT_ONE_NEGATIVE : JINT_ONE;
+      }
+    }
+    if (aLen.greaterThan(JINT_ZERO)) {
+      return checkZeroTail(this.data, aLen);
+    }
+    if (bLen.greaterThan(JINT_ZERO)) {
+      return checkZeroTail(other.data, bLen).multiply(JINT_ONE_NEGATIVE);
+    }
+    return JINT_ZERO;
   }
 
   public cmpPow52(p5: JInt, p2: JInt): JInt {
-    // TOOD
+    if (p5.equal(JINT_ZERO)) {
+      const wordcount = p2.shiftRight(new JInt(5)).intValue();
+      const bitcount = p2.and(new JInt(0x1F)).intValue();
+      const size = this.nWords.plus(this.offset).intValue();
+      if (size.greaterThan(wordcount.plus(JINT_ONE))) {
+        return JINT_ONE;
+      } else if (size.lessThan(wordcount.plus(JINT_ONE))) {
+        return JINT_ONE_NEGATIVE;
+      }
+      const a = this.data[this.nWords.minus(JINT_ONE_NEGATIVE).asJsNumber()];
+      const b = JINT_ONE.shiftLeft(bitcount).intValue();
+      if (!a.equal(b)) {
+        return a.and(LONG_MASK).lessThan(b.and(LONG_MASK)) ? JINT_ONE_NEGATIVE : JINT_ONE;
+      }
+      return checkZeroTail(this.data, this.nWords.minus(JINT_ONE));
+    }
+    return this.cmp(big5pow(p5).leftShift(p2));
   }
 
   public makeImmutable() {
