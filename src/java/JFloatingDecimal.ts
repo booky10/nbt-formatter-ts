@@ -7,7 +7,7 @@ import JInt, {
   JINT_TEN,
   JINT_ZERO,
   JINT_FOUR,
-  JINT_SIXTEEN, JINT_TWO,
+  JINT_SIXTEEN, JINT_TWO, JINT_EIGHT,
 } from "./JInt.js";
 import JDouble, {
   JDOUBLE_EXP_BIAS,
@@ -118,22 +118,167 @@ const TINY_10_POW: JDouble[] = [
 const MAX_SMALL_TEN = new JInt(SMALL_10_POW.length - 1);
 const SINGLE_MAX_SMALL_TEN = new JInt(SINGLE_SMALL_10_POW.length - 1);
 
+const SMALL_5_POW: JInt[] = [
+  new JInt(1),
+  new JInt(5),
+  new JInt(5 * 5),
+  new JInt(5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+  new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+];
+
 class FDBigInteger {
   private data: JInt[];
   private offset: JInt;
   private nWords: JInt;
   private isImmutable: boolean = false;
 
-  constructor(lValue: JLong, digits: string[], kDigits: JInt, nDigits: JInt) {
-    // TODO
+  constructor(data?: JInt[], offset?: JInt, nWords?: JInt, isImmutable: boolean = false) {
+    this.data = data;
+    this.offset = offset;
+    this.nWords = nWords;
+    this.isImmutable = isImmutable;
+  }
+
+  public static construct(lValue: JLong, digits: string[], kDigits: JInt, nDigits: JInt): FDBigInteger {
+    const obj = new FDBigInteger();
+    const n = JMath.imax(nDigits.plus(JINT_EIGHT).divide(new JInt(9)).intValue(), JINT_TWO); // estimate size needed
+    obj.data = new Array<JInt>(n); // allocate enough space
+    obj.data[0] = lValue.intValue(); // starting value
+    obj.data[1] = lValue.unsignedShiftRight(new JLong(32)).intValue();
+    obj.offset = JINT_ZERO;
+    obj.nWords = JINT_TWO;
+    let i = kDigits;
+    const limit = nDigits.minus(new JInt(5)).intValue(); // slurp digits 5 at a time
+    let v: JInt;
+    while (i.lessThan(limit)) {
+      const ilim = i.plus(new JInt(5));
+      v = new JInt(parseInt(digits[i.asJsNumber()]));
+      i = i.plus(JINT_ONE).intValue();
+      while (i.lessThan(ilim)) {
+        v = JINT_TEN.multiply(v).plus(new JInt(parseInt(digits[i.asJsNumber()]))).intValue();
+        i = i.plus(JINT_ONE).intValue();
+      }
+      obj.multAddMe(100000, v); // ... where 100000 is 10^5.
+    }
+    let factor = JINT_ONE;
+    v = JINT_ZERO;
+    while (i.lessThan(nDigits)) {
+      v = JINT_TEN.multiply(v).plus(new JInt(parseInt(digits[i.asJsNumber()]))).intValue();
+      i = i.plus(JINT_ONE).intValue();
+      factor = factor.multiply(JINT_TEN).intValue();
+    }
+    if (!factor.equal(JINT_ONE)) {
+      obj.multAddMe(factor, v);
+    }
+    obj.trimLeadingZeros();
+    return obj;
   }
 
   public static valueOfMulPow52(value: JLong, p5: JInt, p2: JInt): FDBigInteger {
-    // TODO
+    if (!p5.equal(JINT_ZERO)) {
+      if (p2.equal(JINT_ZERO)) {
+        return big5pow(p5);
+      } else if (p5.lessThan(new JInt(SMALL_5_POW.length))) {
+        const pow5 = SMALL_5_POW[p5.asJsNumber()];
+        const wordcount = p2.shiftRight(new JInt(5)).intValue();
+        const bitcount = p2.and(new JInt(0x1F)).intValue();
+        const obj = new FDBigInteger();
+        if (bitcount.equal(JINT_ZERO)) {
+          obj.data = [pow5];
+          obj.offset = wordcount;
+          obj.nWords = JINT_ONE;
+        } else {
+          obj.data = [
+            pow5.shiftLeft(bitcount).intValue(),
+            pow5.unsignedShiftRight(new JInt(32).minus(bitcount)).intValue(),
+          ];
+          obj.offset = wordcount;
+          obj.nWords = JINT_TWO;
+        }
+        return obj;
+      } else {
+        return big5pow(p5).leftShift(p2);
+      }
+    } else {
+      return valueOfPow2(p2);
+    }
   }
 
   public leftShift(shift: JInt): FDBigInteger {
-    // TODO
+    if (shift.equal(JINT_ZERO) || this.nWords.equal(JINT_ZERO)) {
+      return this;
+    }
+    const wordcount = shift.shiftRight(new JInt(5)).intValue();
+    const bitcount = shift.and(new JInt(0x1F)).intValue();
+    if (this.isImmutable) {
+      const obj = new FDBigInteger();
+      obj.offset = this.offset.plus(wordcount).intValue();
+      if (bitcount.equal(JINT_ZERO)) {
+        obj.data = [...this.data].slice(0, this.nWords.asJsNumber());
+        obj.nWords = this.nWords;
+      } else {
+        const anticount = new JInt(32).minus(bitcount).intValue();
+        const idx = this.nWords.minus(JINT_ONE).intValue();
+        const prev = this.data[idx.asJsNumber()]!!;
+        const hi = prev.unsignedShiftRight(anticount).intValue();
+        let result: JInt[];
+        if (!hi.equal(JINT_ZERO)) {
+          result = new Array<JInt>(this.nWords.plus(JINT_ONE).asJsNumber());
+          result[this.nWords.asJsNumber()] = hi;
+        } else {
+          result = new Array<JInt>(this.nWords.asJsNumber());
+        }
+        sleftShift(this.data, idx, result, bitcount, anticount, prev);
+        obj.data = result;
+        obj.nWords = new JInt(result.length);
+      }
+      return obj;
+    } else {
+      if (!bitcount.equal(JINT_ZERO)) {
+        const anticount = new JInt(32).minus(bitcount).intValue();
+        if (this.data[0].shiftLeft(bitcount).equal(JINT_ZERO)) {
+          let idx = JINT_ZERO;
+          let prev = this.data[idx.asJsNumber()];
+          for (; idx.lessThan(this.nWords.minus(JINT_ONE)); idx = idx.plus(JINT_ONE).intValue()) {
+            let v = prev.unsignedShiftRight(anticount).intValue();
+            prev = this.data[idx.plus(JINT_ONE).asJsNumber()];
+            v = v.or(prev.shiftLeft(bitcount)).intValue();
+            this.data[idx.asJsNumber()] = v;
+          }
+          let v = prev.unsignedShiftRight(anticount).intValue();
+          this.data[idx.asJsNumber()] = v;
+          if (v.equal(JINT_ZERO)) {
+            this.nWords = this.nWords.minus(JINT_ONE).intValue();
+          }
+          this.offset = this.offset.plus(JINT_ONE).intValue();
+        } else {
+          const idx = this.nWords.minus(JINT_ONE).intValue();
+          const prev = this.data[idx.asJsNumber()];
+          const hi = prev.unsignedShiftRight(anticount).intValue();
+          let result = this.data;
+          const src = this.data;
+          if (!hi.equal(JINT_ZERO)) {
+            if (this.nWords.equal(new JInt(this.data.length))) {
+              this.data = result = new Array<JInt>(this.nWords.plus(JINT_ONE).intValue());
+            }
+            result[this.nWords.asJsNumber()] = hi;
+            this.nWords = this.nWords.plus(JINT_ONE).intValue();
+          }
+          sleftShift(src, idx, result, bitcount, anticount, prev);
+        }
+      }
+      this.offset = this.offset.plus(wordcount).intValue();
+      return this;
+    }
   }
 
   public multByPow52(p5: JInt, p2: JInt): FDBigInteger {
