@@ -28,3 +28,6 @@ export type MapEntry<K, V> = {
 }
 
 export const nanos = (): number => Math.ceil(performance.now() * 1_000_000);
+
+export const MIN_RADIX = 2
+export const MAX_RADIX = 36
