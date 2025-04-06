@@ -101,8 +101,16 @@ export default class JLong extends JNumber {
     return this.value > num.longValue().value;
   }
 
+  greaterThanEqual(num: JNumber): boolean {
+    return this.value >= num.longValue().value;
+  }
+
   lessThan(num: JNumber): boolean {
     return this.value < num.longValue().value;
+  }
+
+  lessThanEqual(num: JNumber): boolean {
+    return this.value <= num.longValue().value;
   }
 
   plus(num: JNumber): JNumber {

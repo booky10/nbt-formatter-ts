@@ -55,8 +55,16 @@ export default class JShort extends JNumber {
     return this.value > num.shortValue().value;
   }
 
+  greaterThanEqual(num: JNumber): boolean {
+    return this.value >= num.shortValue().value;
+  }
+
   lessThan(num: JNumber): boolean {
     return this.value < num.shortValue().value;
+  }
+
+  lessThanEqual(num: JNumber): boolean {
+    return this.value <= num.shortValue().value;
   }
 
   plus(num: JNumber): JNumber {

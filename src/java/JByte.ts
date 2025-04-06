@@ -55,8 +55,16 @@ export default class JByte extends JNumber {
     return this.value > num.byteValue().value;
   }
 
+  greaterThanEqual(num: JNumber): boolean {
+    return this.value >= num.byteValue().value;
+  }
+
   lessThan(num: JNumber): boolean {
     return this.value < num.byteValue().value;
+  }
+
+  lessThanEqual(num: JNumber): boolean {
+    return this.value <= num.byteValue().value;
   }
 
   plus(num: JNumber): JNumber {

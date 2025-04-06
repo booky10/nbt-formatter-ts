@@ -101,8 +101,16 @@ export default class JInt extends JNumber {
     return this.value > num.intValue().value;
   }
 
+  greaterThanEqual(num: JNumber): boolean {
+    return this.value >= num.intValue().value;
+  }
+
   lessThan(num: JNumber): boolean {
     return this.value < num.intValue().value;
+  }
+
+  lessThanEqual(num: JNumber): boolean {
+    return this.value <= num.intValue().value;
   }
 
   plus(num: JNumber): JNumber {
@@ -128,6 +136,7 @@ export default class JInt extends JNumber {
 export const JINT_ZERO = new JInt(0);
 export const JINT_ONE_POSITIVE = new JInt(1);
 export const JINT_ONE_NEGATIVE = new JInt(-1);
+export const JINT_TEN_POSITIVE = new JInt(10);
 export const JINT_MIN_VALUE = new JInt(0x80000000);
 export const JINT_MAX_VALUE = new JInt(0x7FFFFFFF);
 export const JINT_SIZE = new JInt(JS_BITS);

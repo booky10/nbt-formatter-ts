@@ -2,6 +2,8 @@ import JInt from "./JInt.js";
 import JByte from "./JByte.js";
 import JLong from "./JLong.js";
 import JShort from "./JShort.js";
+import JFloat from "./JFloat.js";
+import JDouble from "./JDouble.js";
 
 export default abstract class JNumber {
 
@@ -25,7 +27,11 @@ export default abstract class JNumber {
 
   public abstract greaterThan(num: JNumber): boolean;
 
+  public abstract greaterThanEqual(num: JNumber): boolean;
+
   public abstract lessThan(num: JNumber): boolean;
+
+  public abstract lessThanEqual(num: JNumber): boolean;
 
   public abstract plus(num: JNumber): JNumber;
 
