@@ -47,8 +47,6 @@ export default abstract class JNumber {
 
   public abstract not(): JNumber;
 
-  public abstract xor(num: JNumber): JNumber;
-
   public abstract shiftLeft(bits: JNumber): JNumber;
 
   public abstract shiftRight(bits: JNumber): JNumber;
