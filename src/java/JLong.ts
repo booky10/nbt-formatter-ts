@@ -42,10 +42,10 @@ export default class JLong extends JNumber {
         } else if (firstChar !== "+") {
           throw error();
         }
-        if (len.equal(JLONG_ONE_POSITIVE)) { // cannot have lone "+" or "-"
+        if (len.equal(JLONG_ONE)) { // cannot have lone "+" or "-"
           throw error();
         }
-        i = i.plus(JLONG_ONE_POSITIVE).intValue();
+        i = i.plus(JLONG_ONE).intValue();
       }
       const jradix = new JInt(radix);
       const multmin = limit.divide(jradix);
@@ -131,10 +131,24 @@ export default class JLong extends JNumber {
     }
     return new JLong(this.value / num.longValue().value);
   }
+
+  public numberOfLeadingZeros(): JInt {
+    const x = this.unsignedShiftRight(new JLong(32)).intValue();
+    return x.equal(JINT_ZERO)
+        ? new JInt(32).plus(this.intValue().numberOfLeadingZeros()).intValue()
+        : x.numberOfLeadingZeros();
+  }
+
+  public numberOfTrailingZeros(): JInt {
+    const x = this.intValue();
+    return x.equal(JINT_ZERO)
+        ? new JInt(32).plus(this.unsignedShiftRight(new JLong(32)).intValue().numberOfTrailingZeros()).intValue()
+        : x.numberOfTrailingZeros();
+  }
 }
 
 export const JLONG_ZERO = new JLong(0);
-export const JLONG_ONE_POSITIVE = new JLong(1);
+export const JLONG_ONE = new JLong(1);
 export const JLONG_ONE_NEGATIVE = new JLong(-1);
 export const JLONG_MIN_VALUE = new JLong(0x80000000);
 export const JLONG_MAX_VALUE = new JLong(0x7FFFFFFF);
