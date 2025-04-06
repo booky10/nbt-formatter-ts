@@ -1,11 +1,11 @@
 import JNumber from "./JNumber.js";
 import JInt, {JINT_ZERO} from "./JInt.js";
 import JLong from "./JLong.js";
-import JShort from "./JShort.js";
+import JByte from "./JByte.js";
 
-const JS_BITS = 8;
+const JS_BITS = 16;
 
-export default class JByte extends JNumber {
+export default class JShort extends JNumber {
   private readonly value: number;
 
   constructor(value: bigint | number) {
@@ -15,12 +15,12 @@ export default class JByte extends JNumber {
     this.value = Number(limited);
   }
 
-  static parseByte(s: string, radix: number) {
+  static parseLong(s: string, radix: number) {
     const i = JInt.parseInt(s, radix);
-    if (i.lessThan(JBYTE_MIN_VALUE) || i.greaterThan(JBYTE_MAX_VALUE)) {
+    if (i.lessThan(JSHORT_MIN_VALUE) || i.greaterThan(JSHORT_MAX_VALUE)) {
       throw new Error(`Value out of range. Value:"${s}" Radix:${radix}`);
     }
-    return i.byteValue();
+    return i.shortValue();
   }
 
   asJsNumber(): number {
@@ -40,49 +40,49 @@ export default class JByte extends JNumber {
   }
 
   byteValue(): JByte {
-    return this;
+    return new JByte(this.value);
   }
 
   shortValue(): JShort {
-    return new JShort(this.value);
+    return this;
   }
 
   equal(num: JNumber): boolean {
-    return this.value === num.byteValue().value;
+    return this.value === num.shortValue().value;
   }
 
   greaterThan(num: JNumber): boolean {
-    return this.value > num.byteValue().value;
+    return this.value > num.shortValue().value;
   }
 
   lessThan(num: JNumber): boolean {
-    return this.value < num.byteValue().value;
+    return this.value < num.shortValue().value;
   }
 
   plus(num: JNumber): JNumber {
-    return new JByte(this.value + num.byteValue().value);
+    return new JShort(this.value + num.shortValue().value);
   }
 
   minus(num: JNumber): JNumber {
-    return new JByte(this.value - num.byteValue().value);
+    return new JShort(this.value - num.shortValue().value);
   }
 
   multiply(num: JNumber): JNumber {
-    return new JByte(this.value * num.byteValue().value);
+    return new JShort(this.value * num.shortValue().value);
   }
 
   divide(num: JNumber): JNumber {
     if (num.equal(JINT_ZERO)) {
       throw new Error("/ by zero");
     }
-    return new JByte(this.value / num.byteValue().value);
+    return new JShort(this.value / num.shortValue().value);
   }
 }
 
-export const JBYTE_ZERO = new JByte(0);
-export const JBYTE_ONE_POSITIVE = new JByte(1);
-export const JBYTE_ONE_NEGATIVE = new JByte(-1);
-export const JBYTE_MIN_VALUE = new JByte(-128);
-export const JBYTE_MAX_VALUE = new JByte(127);
-export const JBYTE_SIZE = new JInt(JS_BITS);
-export const JBYTE_BYTES = JBYTE_SIZE.divide(JBYTE_SIZE);
+export const JSHORT_ZERO = new JShort(0);
+export const JSHORT_ONE_POSITIVE = new JShort(1);
+export const JSHORT_ONE_NEGATIVE = new JShort(-1);
+export const JSHORT_MIN_VALUE = new JShort(-128);
+export const JSHORT_MAX_VALUE = new JShort(127);
+export const JSHORT_SIZE = new JInt(JS_BITS);
+export const JSHORT_BYTES = JSHORT_SIZE.divide(JSHORT_SIZE);

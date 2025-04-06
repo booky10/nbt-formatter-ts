@@ -1,7 +1,13 @@
 import JInt from "./JInt.js";
 import JByte from "./JByte.js";
+import JLong from "./JLong.js";
+import JShort from "./JShort.js";
 
 export default abstract class JNumber {
+
+  public abstract asJsNumber(): number
+
+  public abstract asJsBigint(): bigint
 
   public abstract intValue(): JInt;
 
@@ -14,4 +20,18 @@ export default abstract class JNumber {
   public abstract byteValue(): JByte;
 
   public abstract shortValue(): JShort;
+
+  public abstract equal(num: JNumber): boolean;
+
+  public abstract greaterThan(num: JNumber): boolean;
+
+  public abstract lessThan(num: JNumber): boolean;
+
+  public abstract plus(num: JNumber): JNumber;
+
+  public abstract minus(num: JNumber): JNumber;
+
+  public abstract multiply(num: JNumber): JNumber;
+
+  public abstract divide(num: JNumber): JNumber;
 }
