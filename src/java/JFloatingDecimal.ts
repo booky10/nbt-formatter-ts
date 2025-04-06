@@ -13,32 +13,32 @@ import JDouble, {
   JDOUBLE_EXP_BIAS,
   JDOUBLE_EXP_BIT_MASK,
   JDOUBLE_INFINITY_NEGATIVE,
-  JDOUBLE_INFINITY_POSITIVE,
+  JDOUBLE_INFINITY,
   JDOUBLE_MAX_EXPONENT, JDOUBLE_MAX_VALUE,
   JDOUBLE_MIN_EXPONENT,
   JDOUBLE_MIN_SUB_EXPONENT, JDOUBLE_MIN_VALUE,
   JDOUBLE_NOT_A_NUMBER,
-  JDOUBLE_ONE_NEGATIVE, JDOUBLE_ONE_POSITIVE,
+  JDOUBLE_ONE_NEGATIVE, JDOUBLE_ONE,
   JDOUBLE_PRECISION,
   JDOUBLE_SIGN_BIT_MASK,
   JDOUBLE_SIGNIF_BIT_MASK, JDOUBLE_TWO_POSITIVE,
   JDOUBLE_ZERO_NEGATIVE,
-  JDOUBLE_ZERO_POSITIVE,
+  JDOUBLE_ZERO,
 } from "./JDouble.js";
 import JFloat, {
   JFLOAT_EXP_BIAS, JFLOAT_EXP_BIT_MASK,
   JFLOAT_INFINITY_NEGATIVE,
-  JFLOAT_INFINITY_POSITIVE, JFLOAT_MAX_EXPONENT, JFLOAT_MIN_EXPONENT, JFLOAT_MIN_SUB_EXPONENT,
+  JFLOAT_INFINITY, JFLOAT_MAX_EXPONENT, JFLOAT_MIN_EXPONENT, JFLOAT_MIN_SUB_EXPONENT,
   JFLOAT_NOT_A_NUMBER, JFLOAT_PRECISION, JFLOAT_SIGN_BIT_MASK, JFLOAT_SIZE, JFLOAT_ZERO_NEGATIVE,
-  JFLOAT_ZERO_POSITIVE,
+  JFLOAT_ZERO, JFLOAT_ONE_NEGATIVE, JFLOAT_MIN_VALUE, JFLOAT_MAX_VALUE, JFLOAT_SIGNIF_BIT_MASK, JFLOAT_ONE,
 } from "./JFloat.js";
-import JLong, {JLONG_ONE_NEGATIVE, JLONG_ONE, JLONG_ZERO} from "./JLong.js";
+import JLong, {JLONG_ONE_NEGATIVE, JLONG_ONE, JLONG_ZERO, JLONG_TEN} from "./JLong.js";
 import {assert} from "../common/util.js";
 import JMath from "./JMath.js";
 
 const EXP_SHIFT = JDOUBLE_PRECISION.minus(JINT_ONE).intValue();
-const FRACT_HOB = JLONG_ONE.shiftLeft(EXP_SHIFT).doubleValue(); // assumed High-Order bit
-const EXP_ONE = JDOUBLE_EXP_BIAS.longValue().shiftLeft(EXP_SHIFT).doubleValue(); // exponent of 1.0
+const FRACT_HOB = JLONG_ONE.shiftLeft(EXP_SHIFT).longValue(); // assumed High-Order bit
+const EXP_ONE = JDOUBLE_EXP_BIAS.longValue().shiftLeft(EXP_SHIFT).longValue(); // exponent of 1.0
 const MAX_SMALL_BIN_EXP = new JInt(62);
 const MIN_SMALL_BIN_EXP = new JInt(63).divide(new JInt(3)).multiply(JINT_ONE_NEGATIVE).intValue();
 const MAX_DECIMAL_DIGITS = new JInt(15);
@@ -153,7 +153,7 @@ class FDBigInteger {
   }
 
   public cmpPow52(p5: JInt, p2: JInt): JInt {
-
+    // TOOD
   }
 
   public makeImmutable() {
@@ -182,17 +182,17 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
   }
 
   public doubleValue(): JDouble {
-    const kDigits = JMath.min(this.nDigits, MAX_DECIMAL_DIGITS.plus(JINT_ONE).intValue());
+    const kDigits = JMath.imin(this.nDigits, MAX_DECIMAL_DIGITS.plus(JINT_ONE).intValue());
     // convert the lead kDigits to a long integer.
     // (special performance hack: start to do it using int)
     let iValue = new JInt(parseInt(this.digits[0]));
-    const iDigits = JMath.min(kDigits, INT_DECIMAL_DIGITS);
+    const iDigits = JMath.imin(kDigits, INT_DECIMAL_DIGITS);
     for (let i = JINT_ONE; i.lessThan(iDigits); i = i.plus(JINT_ONE).intValue()) {
       iValue = iValue.multiply(JINT_TEN).plus(new JInt(parseInt(this.digits[i.asJsNumber()]))).intValue();
     }
     let lValue = iValue.longValue();
     for (let i = iDigits; i.lessThan(kDigits); i = i.plus(JINT_ONE).intValue()) {
-      lValue = lValue.multiply(new JLong(10)).plus(new JLong(parseInt(this.digits[i.asJsNumber()]))).longValue();
+      lValue = lValue.multiply(JLONG_TEN).plus(new JLong(parseInt(this.digits[i.asJsNumber()]))).longValue();
     }
     let dValue = lValue.doubleValue();
     let exp = this.decExponent.minus(kDigits).intValue();
@@ -209,7 +209,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
       // Note that all our constructors trim all leading and
       // trailing zeros, so simple values (including zero)
       // will always end up here
-      if (exp.equal(JINT_ZERO) || dValue.equal(JDOUBLE_ZERO_POSITIVE)) {
+      if (exp.equal(JINT_ZERO) || dValue.equal(JDOUBLE_ZERO)) {
         return this.isNegative ? dValue.multiply(JDOUBLE_ONE_NEGATIVE).doubleValue() : dValue; // small floating integer
       } else if (exp.greaterThanEqual(JINT_ZERO)) {
         if (exp.lessThanEqual(MAX_SMALL_TEN)) {
@@ -248,7 +248,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
       if (this.decExponent.greaterThan(MAX_DECIMAL_EXPONENT.plus(JINT_ONE))) {
         // Lets face it. This is going to be
         // Infinity. Cut to the chase.
-        return this.isNegative ? JDOUBLE_INFINITY_NEGATIVE : JDOUBLE_INFINITY_POSITIVE;
+        return this.isNegative ? JDOUBLE_INFINITY_NEGATIVE : JDOUBLE_INFINITY;
       }
       if (!exp.and(new JInt(15)).equal(JINT_ZERO)) {
         dValue = dValue.multiply(SMALL_10_POW[exp.and(new JInt(15)).asJsNumber()]).doubleValue();
@@ -283,7 +283,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
           t = dValue.divide(JDOUBLE_TWO_POSITIVE).doubleValue();
           t = t.multiply(BIG_10_POW[j.asJsNumber()]).doubleValue();
           if (t.isInfinite()) {
-            return this.isNegative ? JDOUBLE_INFINITY_NEGATIVE : JDOUBLE_INFINITY_POSITIVE;
+            return this.isNegative ? JDOUBLE_INFINITY_NEGATIVE : JDOUBLE_INFINITY;
           }
           t = JDOUBLE_MAX_VALUE;
         }
@@ -294,7 +294,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
       if (this.decExponent.lessThan(MIN_DECIMAL_EXPONENT.minus(JINT_ONE))) {
         // Lets face it. This is going to be
         // zero. Cut to the chase.
-        return this.isNegative ? JDOUBLE_ZERO_NEGATIVE : JDOUBLE_ZERO_POSITIVE;
+        return this.isNegative ? JDOUBLE_ZERO_NEGATIVE : JDOUBLE_ZERO;
       }
       if (!exp.and(new JInt(15)).equal(JINT_ZERO)) {
         dValue = dValue.divide(SMALL_10_POW[exp.and(new JInt(15)).asJsNumber()]).doubleValue();
@@ -315,7 +315,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
         // would get unrolled. We handle it here.
         // It could underflow.
         let t = dValue.multiply(TINY_10_POW[j.asJsNumber()]).doubleValue();
-        if (t.equal(JDOUBLE_ZERO_POSITIVE)) {
+        if (t.equal(JDOUBLE_ZERO)) {
           // It did underflow.
           // Look more closely at the result.
           // If the exponent is just one too small,
@@ -328,8 +328,8 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
           // Double.MIN_VALUE ).
           t = dValue.multiply(JDOUBLE_TWO_POSITIVE).doubleValue();
           t = t.multiply(TINY_10_POW[j.asJsNumber()]).doubleValue();
-          if (t.equal(JDOUBLE_ZERO_POSITIVE)) {
-            return this.isNegative ? JDOUBLE_ZERO_NEGATIVE : JDOUBLE_ZERO_POSITIVE;
+          if (t.equal(JDOUBLE_ZERO)) {
+            return this.isNegative ? JDOUBLE_ZERO_NEGATIVE : JDOUBLE_ZERO;
           }
           t = JDOUBLE_MIN_VALUE;
         }
@@ -350,8 +350,8 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
     exp = this.decExponent.minus(this.nDigits).intValue();
 
     let ieeeBits = dValue.getRawLongBits(); // IEEE-754 bits of double candidate
-    const B5 = JMath.max(JINT_ZERO, exp.multiply(JINT_ONE_NEGATIVE).intValue()); // powers of 5 in bigB, value is not modified inside correctionLoop
-    const D5 = JMath.max(JINT_ZERO, exp); // powers of 5 in bigD, value is not modified inside correctionLoop
+    const B5 = JMath.imax(JINT_ZERO, exp.multiply(JINT_ONE_NEGATIVE).intValue()); // powers of 5 in bigB, value is not modified inside correctionLoop
+    const D5 = JMath.imax(JINT_ZERO, exp); // powers of 5 in bigD, value is not modified inside correctionLoop
     bigD0 = bigD0.multByPow52(D5, JINT_ZERO);
     bigD0.makeImmutable(); // prevent bigD0 modification inside correctionLoop
     let bigD: FDBigInteger | undefined = undefined;
@@ -363,7 +363,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
           let binexp = ieeeBits.unsignedShiftRight(EXP_SHIFT).intValue();
           let bigBbits = ieeeBits.and(JDOUBLE_SIGNIF_BIT_MASK).longValue();
           if (binexp.greaterThan(JINT_ZERO)) {
-            bigBbits = bigBbits.or(FRACT_HOB).longValue(); // TODO this is "long | double", what happens here?
+            bigBbits = bigBbits.or(FRACT_HOB).longValue();
           } else { // normalize denormalized numbers
             assert(!bigBbits.equal(JLONG_ZERO));
             const leadingZeros = bigBbits.numberOfLeadingZeros();
@@ -408,7 +408,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
           D2 = D2.plus(hulpbias).intValue();
           // if there are common factors of 2, we might just as well
           // factor them out, as they add nothing useful.
-          const common2 = JMath.min(B2, JMath.min(D2, Ulp2));
+          const common2 = JMath.imin(B2, JMath.imin(D2, Ulp2));
           B2 = B2.minus(common2).intValue();
           D2 = D2.minus(common2).intValue();
           Ulp2 = Ulp2.minus(common2).intValue();
@@ -436,7 +436,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
           if (cmpResult.greaterThan(JINT_ZERO)) {
             overvalue = true; // our candidate is too big
             diff = bigB.leftInplaceSub(bigD); // bigB is not used further - reuse
-            if (bigIntNBits.equal(JINT_ONE) && bigIntExp.greaterThan(JDOUBLE_EXP_BIAS.multiply(JDOUBLE_ONE_NEGATIVE).plus(JDOUBLE_ONE_POSITIVE))) {
+            if (bigIntNBits.equal(JINT_ONE) && bigIntExp.greaterThan(JDOUBLE_EXP_BIAS.multiply(JINT_ONE_NEGATIVE).plus(JINT_ONE))) {
               // candidate is a normalized exact power of 2 and
               // is too big (larger than Double.MIN_NORMAL). We will be subtracting.
               // For our purposes, ulp is the ulp of the
@@ -451,7 +451,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
             }
           } else if (cmpResult.lessThan(JINT_ZERO)) {
             overvalue = false; // our candidate is too small.
-            diff = bigD.rightInplaceSub(bigB); // bigB is not user further - reuse
+            diff = bigD.rightInplaceSub(bigB); // bigB is not used further - reuse
           } else {
             // the candidate is exactly right!
             // this happens with surprising frequency
@@ -489,7 +489,277 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
   }
 
   public floatValue(): JFloat {
-    const kDigits = JMath.min(this.nDigits, SINGLE_MAX_DECIMAL_DIGITS.plus(JINT_ONE).intValue());
+    const kDigits = JMath.imin(this.nDigits, SINGLE_MAX_DECIMAL_DIGITS.plus(JINT_ONE).intValue());
+    // convert the lead kDigits to an integer.
+    let iValue = new JInt(parseInt(this.digits[0]));
+    for (let i = JINT_ONE; i.lessThan(kDigits); i = i.plus(JINT_ONE).intValue()) {
+      iValue = iValue.multiply(JINT_TEN).plus(new JInt(parseInt(this.digits[i.asJsNumber()]))).intValue();
+    }
+    let fValue = iValue.floatValue();
+    let exp = this.decExponent.minus(kDigits).intValue();
+    // iValue now contains an integer with the value of
+    // the first kDigits digits of the number.
+    // fValue contains the (float) of the same.
+
+    if (this.nDigits.lessThanEqual(SINGLE_MAX_DECIMAL_DIGITS)) {
+      // possibly an easy case.
+      // We know that the digits can be represented
+      // exactly. And if the exponent isn't too outrageous,
+      // the whole thing can be done with one operation,
+      // thus one rounding error.
+      // Note that all our constructors trim all leading and
+      // trailing zeros, so simple values (including zero)
+      // will always end up here.
+      if (exp.equal(JINT_ZERO) || fValue.equal(JFLOAT_ZERO)) {
+        return this.isNegative ? fValue.multiply(JFLOAT_ONE_NEGATIVE).floatValue() : fValue; // small floating integer
+      } else if (exp.greaterThanEqual(JINT_ZERO)) {
+        if (exp.lessThanEqual(SINGLE_MAX_SMALL_TEN)) {
+          // Can get the answer with one operation,
+          // thus one roundoff.
+          fValue = fValue.multiply(SINGLE_SMALL_10_POW[exp.asJsNumber()]).floatValue();
+          return this.isNegative ? fValue.multiply(JFLOAT_ONE_NEGATIVE).floatValue() : fValue;
+        }
+        const slop = SINGLE_MAX_DECIMAL_DIGITS.minus(kDigits).intValue();
+        if (exp.lessThanEqual(SINGLE_MAX_SMALL_TEN.plus(slop))) {
+          // We can multiply fValue by 10^(slop)
+          // and it is still "small" and exact.
+          // Then we can multiply by 10^(exp-slop)
+          // with one rounding.
+          fValue = fValue.multiply(SINGLE_SMALL_10_POW[slop.asJsNumber()]).floatValue();
+          fValue = fValue.multiply(SINGLE_SMALL_10_POW[exp.minus(slop).asJsNumber()]).floatValue();
+          return this.isNegative ? fValue.multiply(JFLOAT_ONE_NEGATIVE).floatValue() : fValue;
+        }
+        // Else we have a hard case with a positive exp.
+      } else {
+        if (exp.greaterThanEqual(SINGLE_MAX_SMALL_TEN.multiply(JINT_ONE_NEGATIVE))) {
+          // Can get the answer in one division.
+          fValue = fValue.divide(SINGLE_SMALL_10_POW[exp.multiply(JINT_ONE_NEGATIVE).asJsNumber()]).floatValue();
+          return this.isNegative ? fValue.multiply(JFLOAT_ONE_NEGATIVE).floatValue() : fValue;
+        }
+        // Else we have a hard case with a negative exp.
+      }
+    } else if (this.decExponent.greaterThanEqual(this.nDigits)
+        && this.nDigits.plus(this.decExponent).lessThanEqual(MAX_DECIMAL_DIGITS)) {
+      // In double-precision, this is an exact floating integer.
+      // So we can compute to double, then shorten to float
+      // with one round, and get the right answer.
+      //
+      // First, finish accumulating digits.
+      // Then convert that integer to a double, multiply
+      // by the appropriate power of ten, and convert to float.
+      let lValue = iValue.longValue();
+      for (let i = kDigits; i.lessThan(this.nDigits); i = i.plus(JINT_ONE).intValue()) {
+        lValue = lValue.multiply(JLONG_TEN).plus(new JLong(parseInt(this.digits[i.asJsNumber()]))).longValue();
+      }
+      let dValue = lValue.doubleValue();
+      exp = this.decExponent.minus(this.nDigits).intValue();
+      dValue = dValue.multiply(SMALL_10_POW[exp.asJsNumber()]).doubleValue();
+      fValue = dValue.floatValue();
+      return this.isNegative ? fValue.multiply(JFLOAT_ONE_NEGATIVE).floatValue() : fValue;
+    }
+    // Harder cases:
+    // The sum of digits plus exponent is greater than
+    // what we think we can do with one error.
+    //
+    // Start by approximating the right answer by,
+    // naively, scaling by powers of 10.
+    // Scaling uses doubles to avoid overflow/underflow.
+    let dValue = fValue.doubleValue();
+    if (exp.greaterThan(JINT_ZERO)) {
+      if (this.decExponent.greaterThan(SINGLE_MAX_DECIMAL_EXPONENT.plus(JINT_ONE))) {
+        // Lets face it. This is going to be
+        // Infinity. Cut to the chase.
+        return this.isNegative ? JFLOAT_INFINITY_NEGATIVE : JFLOAT_INFINITY;
+      }
+      if (!exp.and(new JInt(15)).equal(JINT_ZERO)) {
+        dValue = dValue.multiply(SMALL_10_POW[exp.and(new JInt(15)).asJsNumber()]).doubleValue();
+      }
+      exp = exp.shiftRight(JINT_FOUR).intValue();
+      if (!exp.equal(JINT_ZERO)) {
+        let j: JInt;
+        for (j = JINT_ZERO;
+             exp.greaterThan(JINT_ZERO);
+             j = j.plus(JINT_ONE).intValue(),
+                 exp = exp.shiftRight(JINT_ONE).intValue()) {
+          if (!exp.and(JINT_ONE).equal(JINT_ZERO)) {
+            dValue = dValue.multiply(BIG_10_POW[j.asJsNumber()]).doubleValue();
+          }
+        }
+      }
+    } else if (exp.lessThan(JINT_ZERO)) {
+      exp = exp.multiply(JINT_ONE_NEGATIVE).intValue();
+      if (this.decExponent.lessThan(SINGLE_MIN_DECIMAL_EXPONENT.minus(JINT_ONE))) {
+        // Lets face it. This is going to be
+        // zero. Cut to the chase.
+        return this.isNegative ? JFLOAT_ZERO_NEGATIVE : JFLOAT_ZERO;
+      }
+      if (!exp.and(new JInt(15)).equal(JINT_ZERO)) {
+        dValue = dValue.divide(SMALL_10_POW[exp.and(new JInt(15)).asJsNumber()]).doubleValue();
+      }
+      exp = exp.shiftRight(JINT_FOUR).intValue();
+      if (!exp.equal(JINT_ZERO)) {
+        let j: JInt;
+        for (j = JINT_ZERO;
+             exp.greaterThan(JINT_ZERO);
+             j = j.plus(JINT_ONE).intValue(),
+                 exp = exp.shiftRight(JINT_ONE).intValue()) {
+          if (!exp.and(JINT_ONE).equal(JINT_ZERO)) {
+            dValue = dValue.multiply(TINY_10_POW[j.asJsNumber()]).doubleValue();
+          }
+        }
+      }
+    }
+    fValue = JMath.fclamp(dValue.floatValue(), JFLOAT_MIN_VALUE, JFLOAT_MAX_VALUE);
+
+    // fValue is now approximately the result.
+    // The hard part is adjusting it, by comparison
+    // with FDBigInteger arithmetic.
+    // Formulate the EXACT big-number result as
+    // bigD0 * 10^exp
+    if (this.nDigits.greaterThan(SINGLE_MAX_NDIGITS)) {
+      this.nDigits = SINGLE_MAX_NDIGITS.plus(JINT_ONE).intValue();
+      this.digits[SINGLE_MAX_NDIGITS.asJsNumber()] = "1";
+    }
+    let bigD0 = new FDBigInteger(iValue.longValue(), this.digits, kDigits, this.nDigits);
+    exp = this.decExponent.minus(this.nDigits).intValue();
+
+    let ieeeBits = fValue.getRawIntBits(); // IEEE-754 bits of float candidate
+    const B5 = JMath.imax(JINT_ZERO, exp.multiply(JINT_ONE_NEGATIVE).intValue()); // powers of 5 in bigB, value is not modified inside correctionLoop
+    const D5 = JMath.imax(JINT_ZERO, exp); // powers of 5 in bigD, value is not modified inside correctionLoop
+    bigD0 = bigD0.multByPow52(D5, JINT_ZERO);
+    bigD0.makeImmutable(); // prevent bigD0 modification inside correctionLoop
+    let bigD: FDBigInteger | undefined = undefined;
+    let prevD2 = JINT_ZERO;
+
+    correctionLoop:
+        while (true) {
+          // here ieeeBits can't be NaN, Infinity or zero
+          let binexp = ieeeBits.unsignedShiftRight(SINGLE_EXP_SHIFT).intValue();
+          let bigBbits = ieeeBits.and(JFLOAT_SIGNIF_BIT_MASK).intValue();
+          if (binexp.greaterThan(JINT_ZERO)) {
+            bigBbits = bigBbits.or(SINGLE_FRACT_HOB).intValue();
+          } else { // normalize denormalized numbers
+            assert(!bigBbits.equal(JINT_ZERO));
+            const leadingZeros = bigBbits.numberOfLeadingZeros();
+            const shift = leadingZeros.minus(new JInt(31).minus(SINGLE_EXP_SHIFT)).intValue();
+            bigBbits = bigBbits.shiftLeft(shift).intValue();
+            binexp = JINT_ONE.minus(shift).intValue();
+          }
+          binexp = binexp.minus(JFLOAT_EXP_BIAS).intValue();
+          const lowOrderZeros = bigBbits.numberOfTrailingZeros();
+          bigBbits = bigBbits.unsignedShiftRight(lowOrderZeros).intValue();
+          const bigIntExp = binexp.minus(SINGLE_EXP_SHIFT).plus(lowOrderZeros).intValue();
+          const bigIntNBits = SINGLE_EXP_SHIFT.plus(JINT_ONE).minus(lowOrderZeros).intValue();
+
+          // Scale bigD, bigB appropriately for
+          // big-integer operations.
+          // Naively, we multiply by powers of ten
+          // and powers of two. What we actually do
+          // is keep track of the powers of 5 and
+          // powers of 2 we would use, then factor out
+          // common divisors before doing the work.
+          let B2 = B5; // powers of 2 in bigB
+          let D2 = D5; // powers of 2 in bigD
+          let Ulp2: JInt; // powers of 2 in halfUlp
+          if (bigIntExp.greaterThanEqual(JINT_ZERO)) {
+            B2 = B2.plus(bigIntExp).intValue();
+          } else {
+            D2 = D2.minus(bigIntExp).intValue();
+          }
+          Ulp2 = B2;
+          // shift bigB and bigD left by a number s. t.
+          // halfUlp is still an integer.
+          let hulpbias: JInt;
+          if (binexp.lessThanEqual(JFLOAT_EXP_BIAS.multiply(JFLOAT_ONE_NEGATIVE))) {
+            // This is going to be a denormalized number
+            // (if not actually zero).
+            // half an ULP is at 2^-(FloatConsts.EXP_BIAS+SINGLE_EXP_SHIFT+1)
+            hulpbias = binexp.plus(lowOrderZeros).plus(JFLOAT_EXP_BIAS).intValue();
+          } else {
+            hulpbias = JINT_ONE.plus(lowOrderZeros).intValue();
+          }
+          B2 = B2.plus(hulpbias).intValue();
+          D2 = D2.plus(hulpbias).intValue();
+          // if there are common factors of 2, we might just as well
+          // factor them out, as they add nothing useful.
+          const common2 = JMath.imin(B2, JMath.imin(D2, Ulp2));
+          B2 = B2.minus(common2).intValue();
+          D2 = D2.minus(common2).intValue();
+          Ulp2 = Ulp2.minus(common2).intValue();
+          // do multiplications by powers of 5 and 2
+          const bigB = FDBigInteger.valueOfMulPow52(bigBbits.longValue(), B5, B2);
+          if ((bigD === undefined || bigD === null) || !prevD2.equal(D2)) {
+            bigD = bigD0.leftShift(D2);
+            prevD2 = D2;
+          }
+          // to recap:
+          // bigB is the scaled-big-int version of our floating-point
+          // candidate.
+          // bigD is the scaled-big-int version of the exact value
+          // as we understand it.
+          // halfUlp is 1/2 an ulp of bigB, except for special cases
+          // of exact powers of 2
+          //
+          // the plan is to compare bigB with bigD, and if the difference
+          // is less than halfUlp, then we're satisfied. Otherwise,
+          // use the ratio of difference to halfUlp to calculate a fudge
+          // factor to add to the floating value, then go 'round again.
+          let diff: FDBigInteger;
+          let cmpResult = bigB.cmp(bigD);
+          let overvalue: boolean;
+          if (cmpResult.greaterThan(JINT_ZERO)) {
+            overvalue = true; // our candidate is too big.
+            diff = bigB.leftInplaceSub(bigD); // bigB is not used further - reuse
+            if (bigIntNBits.equal(JINT_ONE) && bigIntExp.greaterThan(JFLOAT_EXP_BIAS.multiply(JINT_ONE_NEGATIVE).plus(JINT_ONE))) {
+              // candidate is a normalized exact power of 2 and
+              // is too big (larger than Float.MIN_NORMAL). We will be subtracting.
+              // For our purposes, ulp is the ulp of the
+              // next smaller range.
+              Ulp2 = Ulp2.minus(JINT_ONE).intValue();
+              if (Ulp2.lessThan(JINT_ZERO)) {
+                // rats. Cannot de-scale ulp this far.
+                // must scale diff in other direction.
+                Ulp2 = JINT_ZERO;
+                diff = diff.leftShift(JINT_ONE);
+              }
+            }
+          } else if (cmpResult.lessThan(JINT_ZERO)) {
+            overvalue = false; // our candidate is too small.
+            diff = bigD.rightInplaceSub(bigB); // bigB is not used further - reuse
+          } else {
+            // the candidate is exactly right!
+            // this happens with surprising frequency
+            break correctionLoop;
+          }
+          cmpResult = diff.cmpPow52(B5, Ulp2);
+          if (cmpResult.lessThan(JINT_ZERO)) {
+            // difference is small.
+            // this is close enough
+            break correctionLoop;
+          } else if (cmpResult.equal(JINT_ZERO)) {
+            // difference is exactly half an ULP
+            // round to some other value maybe, then finish
+            if (!ieeeBits.and(JINT_ZERO).equal(JINT_ZERO)) { // half ties to even
+              ieeeBits = ieeeBits.plus(overvalue ? JINT_ONE_NEGATIVE : JINT_ONE).intValue(); // nextDown or nextUp
+            }
+            break correctionLoop;
+          } else {
+            // difference is non-trivial.
+            // could scale addend by ratio of difference to
+            // halfUlp here, if we bothered to compute that difference.
+            // Most of the time (I hope) it is about 1 anyway.
+            ieeeBits = ieeeBits.plus(overvalue ? JINT_ONE_NEGATIVE : JINT_ONE).intValue(); // nextDown or nextUp
+            if (ieeeBits.equal(JLONG_ZERO) || ieeeBits.equal(JFLOAT_EXP_BIT_MASK)) { // 0.0 or Float.POSITIVE_INFINITY
+              break correctionLoop; // oops. Fell off end of range.
+            }
+            // noinspection UnnecessaryContinueJS
+            continue; // try again.
+          }
+        }
+    if (this.isNegative) {
+      ieeeBits = ieeeBits.or(JFLOAT_SIGN_BIT_MASK).intValue();
+    }
+    return JFloat.fromRawIntBits(ieeeBits);
   }
 }
 
@@ -500,10 +770,10 @@ const createStaticConverter = (double: JDouble, float: JFloat) => {
   } as ASCIIToBinaryConverter;
 };
 
-const A2BC_POSITIVE_INFINITY = createStaticConverter(JDOUBLE_INFINITY_POSITIVE, JFLOAT_INFINITY_POSITIVE);
+const A2BC_POSITIVE_INFINITY = createStaticConverter(JDOUBLE_INFINITY, JFLOAT_INFINITY);
 const A2BC_NEGATIVE_INFINITY = createStaticConverter(JDOUBLE_INFINITY_NEGATIVE, JFLOAT_INFINITY_NEGATIVE);
 const A2BC_NOT_A_NUMBER = createStaticConverter(JDOUBLE_NOT_A_NUMBER, JFLOAT_NOT_A_NUMBER);
-const A2BC_POSITIVE_ZERO = createStaticConverter(JDOUBLE_ZERO_POSITIVE, JFLOAT_ZERO_POSITIVE);
+const A2BC_POSITIVE_ZERO = createStaticConverter(JDOUBLE_ZERO, JFLOAT_ZERO);
 const A2BC_NEGATIVE_ZERO = createStaticConverter(JDOUBLE_ZERO_NEGATIVE, JFLOAT_ZERO_NEGATIVE);
 
 export const parseFloat = (input: string) => readJavaFormatString(input).floatValue();

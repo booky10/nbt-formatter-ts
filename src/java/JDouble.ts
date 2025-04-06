@@ -12,7 +12,7 @@ export default class JDouble extends JNumber {
     private constructor(value: bigint) {
         super();
         const bigint = BigInt(value);
-        this.value = BigInt.asIntN(JS_BITS, bigint);
+        this.value = BigInt.asUintN(JS_BITS, bigint);
     }
 
     static parseDouble(s: string) {
@@ -39,12 +39,12 @@ export default class JDouble extends JNumber {
     }
 }
 
-export const JDOUBLE_ZERO_POSITIVE = JDouble.fromRawLongBits(0n);
+export const JDOUBLE_ZERO = JDouble.fromRawLongBits(0n);
 export const JDOUBLE_ZERO_NEGATIVE = JDouble.fromRawLongBits(0x8000000000000000n);
-export const JDOUBLE_ONE_POSITIVE = JDouble.fromRawLongBits(0x3FF0000000000000n);
+export const JDOUBLE_ONE = JDouble.fromRawLongBits(0x3FF0000000000000n);
 export const JDOUBLE_ONE_NEGATIVE = JDouble.fromRawLongBits(0xBFF0000000000000n);
 export const JDOUBLE_TWO_POSITIVE = JDouble.fromRawLongBits(0x4000000000000000n);
-export const JDOUBLE_INFINITY_POSITIVE = JDouble.fromRawLongBits(0x7FF0000000000000n);
+export const JDOUBLE_INFINITY = JDouble.fromRawLongBits(0x7FF0000000000000n);
 export const JDOUBLE_INFINITY_NEGATIVE = JDouble.fromRawLongBits(0xFFF0000000000000n);
 export const JDOUBLE_NOT_A_NUMBER = JDouble.fromRawLongBits(0x7FF8000000000000n);
 export const JDOUBLE_MIN_VALUE = JDouble.fromRawLongBits(1n);

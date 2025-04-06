@@ -2,6 +2,7 @@ import JNumber from "./JNumber.js";
 import {JBYTE_SIZE} from "./JByte.js";
 import JInt, {JINT_ONE_NEGATIVE, JINT_ONE} from "./JInt.js";
 import {parseFloat} from "./JFloatingDecimal.js";
+import JLong from "./JLong.js";
 
 const JS_BITS = 32;
 
@@ -11,7 +12,7 @@ export default class JFloat extends JNumber {
   private constructor(value: bigint) {
     super();
     const bigint = BigInt(value);
-    this.value = BigInt.asIntN(JS_BITS, bigint);
+    this.value = BigInt.asUintN(JS_BITS, bigint);
   }
 
   static parseFloat(s: string) {
@@ -24,13 +25,25 @@ export default class JFloat extends JNumber {
     }
     return new JFloat(bits);
   }
+
+  public isNaN(): boolean {
+    // TODO
+  }
+
+  public compareTo(anotherFloat: JFloat): JInt {
+    // TODO
+  }
+
+  public getRawIntBits(): JInt {
+    return new JInt(this.value)
+  }
 }
 
-export const JFLOAT_ZERO_POSITIVE = JFloat.fromRawIntBits(0n);
+export const JFLOAT_ZERO = JFloat.fromRawIntBits(0n);
 export const JFLOAT_ZERO_NEGATIVE = JFloat.fromRawIntBits(0x80000000n);
-export const JFLOAT_ONE_POSITIVE = JFloat.fromRawIntBits(0x3F800000n);
+export const JFLOAT_ONE = JFloat.fromRawIntBits(0x3F800000n);
 export const JFLOAT_ONE_NEGATIVE = JFloat.fromRawIntBits(0xBF800000n);
-export const JFLOAT_INFINITY_POSITIVE = JFloat.fromRawIntBits(0x7F800000n);
+export const JFLOAT_INFINITY = JFloat.fromRawIntBits(0x7F800000n);
 export const JFLOAT_INFINITY_NEGATIVE = JFloat.fromRawIntBits(0xFF800000n);
 export const JFLOAT_NOT_A_NUMBER = JFloat.fromRawIntBits(0x7FC00000n);
 export const JFLOAT_MIN_VALUE = JFloat.fromRawIntBits(1n);
@@ -47,3 +60,4 @@ export const JFLOAT_EXP_BIT_MASK = JINT_ONE.shiftLeft(JFLOAT_SIZE.minus(JFLOAT_P
 export const JFLOAT_MIN_SUB_EXPONENT = JFLOAT_MIN_EXPONENT.minus(JFLOAT_PRECISION.minus(JINT_ONE)); // -149
 export const JFLOAT_EXP_BIAS = JINT_ONE.shiftLeft(JFLOAT_SIZE.minus(JFLOAT_PRECISION)
     .minus(JINT_ONE)).minus(JINT_ONE); // 127
+export const JFLOAT_SIGNIF_BIT_MASK = JINT_ONE.shiftLeft(JFLOAT_PRECISION.minus(JINT_ONE)).minus(JINT_ONE)

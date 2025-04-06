@@ -147,9 +147,10 @@ export default class JLong extends JNumber {
   }
 }
 
+export const JLONG_ONE_NEGATIVE = new JLong(-1);
 export const JLONG_ZERO = new JLong(0);
 export const JLONG_ONE = new JLong(1);
-export const JLONG_ONE_NEGATIVE = new JLong(-1);
+export const JLONG_TEN = new JLong(10);
 export const JLONG_MIN_VALUE = new JLong(0x80000000);
 export const JLONG_MAX_VALUE = new JLong(0x7FFFFFFF);
 export const JLONG_SIZE = new JInt(JS_BITS);
