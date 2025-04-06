@@ -40,4 +40,18 @@ export default abstract class JNumber {
   public abstract multiply(num: JNumber): JNumber;
 
   public abstract divide(num: JNumber): JNumber;
+
+  public abstract or(num: JNumber): JNumber;
+
+  public abstract and(num: JNumber): JNumber;
+
+  public abstract not(): JNumber;
+
+  public abstract xor(num: JNumber): JNumber;
+
+  public abstract shiftLeft(bits: JNumber): JNumber;
+
+  public abstract shiftRight(bits: JNumber): JNumber;
+
+  public abstract unsignedShiftRight(bits: JNumber): JNumber;
 }

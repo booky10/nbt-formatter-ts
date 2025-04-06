@@ -17,7 +17,7 @@ export default class JInt extends JNumber {
   }
 
   // copied from java 21's Integer#parseInt
-  static parseInt(s: string, radix: number) {
+  static parseInt(s: string, radix: number = 10) {
     if (s === undefined || s === null) {
       throw new Error("Cannot parse null string");
     } else if (radix < MIN_RADIX) {

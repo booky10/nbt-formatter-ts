@@ -1,24 +1,24 @@
 import JNumber from "./JNumber.js";
 import {JBYTE_SIZE} from "./JByte.js";
-import JInt from "./JInt.js";
+import JInt, {JINT_ONE_NEGATIVE, JINT_ONE_POSITIVE} from "./JInt.js";
 
 const JS_BITS = 32;
 
 export default class JFloat extends JNumber {
-    private readonly value: bigint;
+  private readonly value: bigint;
 
-    private constructor(value: bigint) {
-        super();
-        const bigint = BigInt(value);
-        this.value = BigInt.asIntN(JS_BITS, bigint);
-    }
+  private constructor(value: bigint) {
+    super();
+    const bigint = BigInt(value);
+    this.value = BigInt.asIntN(JS_BITS, bigint);
+  }
 
-    static fromRawIntBits(bits: bigint | JNumber) {
-        if (bits instanceof JNumber) {
-            bits = bits.asJsBigint();
-        }
-        return new JFloat(bits);
+  static fromRawIntBits(bits: bigint | JNumber) {
+    if (bits instanceof JNumber) {
+      bits = bits.asJsBigint();
     }
+    return new JFloat(bits);
+  }
 }
 
 export const JFLOAT_ZERO_POSITIVE = JFloat.fromRawIntBits(0n);
@@ -31,4 +31,14 @@ export const JFLOAT_NOT_A_NUMBER = JFloat.fromRawIntBits(0x7FC00000n);
 export const JFLOAT_MIN_VALUE = JFloat.fromRawIntBits(1n);
 export const JFLOAT_MAX_VALUE = JFloat.fromRawIntBits(0x7F7FFFFFn);
 export const JFLOAT_SIZE = new JInt(JS_BITS);
+export const JFLOAT_PRECISION = new JInt(24);
+export const JFLOAT_MAX_EXPONENT = JINT_ONE_POSITIVE.shiftLeft(JFLOAT_SIZE.minus(JFLOAT_PRECISION).minus(JINT_ONE_POSITIVE)).minus(JINT_ONE_POSITIVE); // 127
+export const JFLOAT_MIN_EXPONENT = JINT_ONE_POSITIVE.minus(JFLOAT_MAX_EXPONENT); // -126
 export const JFLOAT_BYTES = JFLOAT_SIZE.divide(JBYTE_SIZE);
+
+export const JFLOAT_SIGN_BIT_MASK = JINT_ONE_POSITIVE.shiftLeft(JFLOAT_SIZE.minus(JINT_ONE_POSITIVE)).intValue();
+export const JFLOAT_EXP_BIT_MASK = JINT_ONE_POSITIVE.shiftLeft(JFLOAT_SIZE.minus(JFLOAT_PRECISION)).minus(JINT_ONE_POSITIVE)
+    .shiftLeft(JFLOAT_PRECISION.minus(JINT_ONE_NEGATIVE));
+export const JFLOAT_MIN_SUB_EXPONENT = JFLOAT_MIN_EXPONENT.minus(JFLOAT_PRECISION.minus(JINT_ONE_POSITIVE)); // -149
+export const JFLOAT_EXP_BIAS = JINT_ONE_POSITIVE.shiftLeft(JFLOAT_SIZE.minus(JFLOAT_PRECISION)
+    .minus(JINT_ONE_POSITIVE)).minus(JINT_ONE_POSITIVE); // 127
