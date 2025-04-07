@@ -7,30 +7,46 @@ import JInt, {
   JINT_TEN,
   JINT_ZERO,
   JINT_FOUR,
-  JINT_SIXTEEN, JINT_TWO, JINT_EIGHT,
+  JINT_SIXTEEN,
+  JINT_TWO,
+  JINT_EIGHT,
 } from "./JInt.js";
 import JDouble, {
   JDOUBLE_EXP_BIAS,
   JDOUBLE_EXP_BIT_MASK,
   JDOUBLE_INFINITY_NEGATIVE,
   JDOUBLE_INFINITY,
-  JDOUBLE_MAX_EXPONENT, JDOUBLE_MAX_VALUE,
+  JDOUBLE_MAX_EXPONENT,
+  JDOUBLE_MAX_VALUE,
   JDOUBLE_MIN_EXPONENT,
-  JDOUBLE_MIN_SUB_EXPONENT, JDOUBLE_MIN_VALUE,
+  JDOUBLE_MIN_SUB_EXPONENT,
+  JDOUBLE_MIN_VALUE,
   JDOUBLE_NOT_A_NUMBER,
-  JDOUBLE_ONE_NEGATIVE, JDOUBLE_ONE,
+  JDOUBLE_ONE_NEGATIVE,
   JDOUBLE_PRECISION,
   JDOUBLE_SIGN_BIT_MASK,
-  JDOUBLE_SIGNIF_BIT_MASK, JDOUBLE_TWO_POSITIVE,
+  JDOUBLE_SIGNIF_BIT_MASK,
+  JDOUBLE_TWO_POSITIVE,
   JDOUBLE_ZERO_NEGATIVE,
   JDOUBLE_ZERO,
 } from "./JDouble.js";
 import JFloat, {
-  JFLOAT_EXP_BIAS, JFLOAT_EXP_BIT_MASK,
+  JFLOAT_EXP_BIAS,
+  JFLOAT_EXP_BIT_MASK,
   JFLOAT_INFINITY_NEGATIVE,
-  JFLOAT_INFINITY, JFLOAT_MAX_EXPONENT, JFLOAT_MIN_EXPONENT, JFLOAT_MIN_SUB_EXPONENT,
-  JFLOAT_NOT_A_NUMBER, JFLOAT_PRECISION, JFLOAT_SIGN_BIT_MASK, JFLOAT_SIZE, JFLOAT_ZERO_NEGATIVE,
-  JFLOAT_ZERO, JFLOAT_ONE_NEGATIVE, JFLOAT_MIN_VALUE, JFLOAT_MAX_VALUE, JFLOAT_SIGNIF_BIT_MASK, JFLOAT_ONE,
+  JFLOAT_INFINITY,
+  JFLOAT_MAX_EXPONENT,
+  JFLOAT_MIN_EXPONENT,
+  JFLOAT_MIN_SUB_EXPONENT,
+  JFLOAT_NOT_A_NUMBER,
+  JFLOAT_PRECISION,
+  JFLOAT_SIGN_BIT_MASK,
+  JFLOAT_ZERO_NEGATIVE,
+  JFLOAT_ZERO,
+  JFLOAT_ONE_NEGATIVE,
+  JFLOAT_MIN_VALUE,
+  JFLOAT_MAX_VALUE,
+  JFLOAT_SIGNIF_BIT_MASK,
 } from "./JFloat.js";
 import JLong, {JLONG_ONE_NEGATIVE, JLONG_ONE, JLONG_ZERO, JLONG_TEN} from "./JLong.js";
 import {assert} from "../common/util.js";
@@ -134,6 +150,9 @@ const SMALL_5_POW: JInt[] = [
   new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
   new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
 ];
+// maximum size of cache of powers of 5 as FDBigIntegers
+const MAX_FIVE_POW = new JInt(340);
+const POW_5_CACHE: FDBigInteger[] = new Array<FDBigInteger>(MAX_FIVE_POW.asJsNumber()); // initialized after class definition
 const LONG_MASK = new JLong(0xFFFFFFFFn);
 
 class FDBigInteger {
@@ -142,7 +161,12 @@ class FDBigInteger {
   private nWords: JInt;
   private isImmutable: boolean = false;
 
-  constructor(data?: JInt[], offset?: JInt, nWords?: JInt, isImmutable: boolean = false) {
+  constructor(
+      data?: JInt[],
+      offset?: JInt,
+      nWords: JInt = new JInt(data.length),
+      isImmutable: boolean = false,
+  ) {
     this.data = data;
     this.offset = offset;
     this.nWords = nWords;
@@ -168,7 +192,7 @@ class FDBigInteger {
         v = JINT_TEN.multiply(v).plus(new JInt(parseInt(digits[i.asJsNumber()]))).intValue();
         i = i.plus(JINT_ONE).intValue();
       }
-      obj.multAddMe(100000, v); // ... where 100000 is 10^5.
+      obj.multAddMe(new JInt(100000), v); // ... where 100000 is 10^5.
     }
     let factor = JINT_ONE;
     v = JINT_ZERO;
@@ -185,33 +209,82 @@ class FDBigInteger {
   }
 
   public static valueOfMulPow52(value: JLong, p5: JInt, p2: JInt): FDBigInteger {
+    assert(p5.greaterThanEqual(JINT_ZERO));
+    assert(p2.greaterThanEqual(JINT_ZERO));
+    let v0 = value.intValue();
+    let v1 = value.unsignedShiftRight(new JLong(32)).intValue();
+    const wordcount = p2.shiftRight(new JInt(5)).intValue();
+    const bitcount = p2.and(new JInt(0x1F)).intValue();
     if (!p5.equal(JINT_ZERO)) {
-      if (p2.equal(JINT_ZERO)) {
-        return big5pow(p5);
-      } else if (p5.lessThan(new JInt(SMALL_5_POW.length))) {
-        const pow5 = SMALL_5_POW[p5.asJsNumber()];
-        const wordcount = p2.shiftRight(new JInt(5)).intValue();
-        const bitcount = p2.and(new JInt(0x1F)).intValue();
-        const obj = new FDBigInteger();
+      if (p5.lessThan(new JInt(SMALL_5_POW.length))) {
+        const pow5 = SMALL_5_POW[p5.asJsNumber()].longValue().and(LONG_MASK).longValue();
+        let carry = v0.longValue().and(LONG_MASK).multiply(pow5).longValue();
+        v0 = carry.intValue();
+        carry = carry.unsignedShiftRight(new JLong(32)).longValue();
+        carry = v1.longValue().and(LONG_MASK).multiply(pow5).plus(carry).longValue();
+        v1 = carry.intValue();
+        const v2 = carry.unsignedShiftRight(new JLong(32)).intValue();
         if (bitcount.equal(JINT_ZERO)) {
-          obj.data = [pow5];
-          obj.offset = wordcount;
-          obj.nWords = JINT_ONE;
+          return new FDBigInteger([v0, v1, v2], wordcount);
         } else {
-          obj.data = [
-            pow5.shiftLeft(bitcount).intValue(),
-            pow5.unsignedShiftRight(new JInt(32).minus(bitcount)).intValue(),
-          ];
-          obj.offset = wordcount;
-          obj.nWords = JINT_TWO;
+          return new FDBigInteger([
+            v0.shiftLeft(bitcount).intValue(),
+            v1.shiftLeft(bitcount).or(v0.unsignedShiftRight(new JInt(32).minus(bitcount))).intValue(),
+            v2.shiftLeft(bitcount).or(v1.unsignedShiftRight(new JInt(32).minus(bitcount))).intValue(),
+            v2.unsignedShiftRight(new JInt(32).minus(bitcount)).intValue(),
+          ], wordcount);
         }
-        return obj;
       } else {
-        return big5pow(p5).leftShift(p2);
+        const pow5 = FDBigInteger.big5pow(p5);
+        let r: JInt[];
+        if (v1.equal(JINT_ZERO)) {
+          r = new Array<JInt>(pow5.nWords.plus(JINT_ONE).plus(!p2.equal(JINT_ZERO) ? JINT_ONE : JINT_ZERO).asJsNumber());
+          FDBigInteger.mult3(pow5.data, pow5.nWords, v0, r);
+        } else {
+          r = new Array<JInt>(pow5.nWords.plus(JINT_TWO).plus(!p2.equal(JINT_ZERO) ? JINT_ONE : JINT_ZERO).asJsNumber());
+          FDBigInteger.mult4(pow5.data, pow5.nWords, v0, v1, r);
+        }
+        return new FDBigInteger(r, pow5.offset).leftShift(p2);
       }
-    } else {
-      return valueOfPow2(p2);
+    } else if (!p2.equal(JINT_ZERO)) {
+      if (bitcount.equal(JINT_ZERO)) {
+        return new FDBigInteger([v0, v1], wordcount);
+      } else {
+        return new FDBigInteger([
+          v0.shiftLeft(bitcount).intValue(),
+          v1.shiftLeft(bitcount).or(v0.unsignedShiftRight(new JInt(32).minus(bitcount))).intValue(),
+          v1.unsignedShiftRight(new JInt(32).minus(bitcount)).intValue(),
+        ], wordcount);
+      }
     }
+    return new FDBigInteger([v0, v1], JINT_ZERO);
+  }
+
+  private trimLeadingZeros(): void {
+    let i = this.nWords;
+    if (i.greaterThan(JINT_ZERO)) {
+      i = i.minus(JINT_ONE).intValue();
+      if (this.data[i.asJsNumber()].equal(JINT_ZERO)) {
+        // for (; i > 0 && data[i - 1] == 0; i--) ;
+        while (i.greaterThan(JINT_ZERO) && this.data[i.minus(JINT_ONE).asJsNumber()].equal(JINT_ZERO)) {
+          i = i.minus(JINT_ONE).intValue();
+        }
+        this.nWords = i;
+        if (i.equal(JINT_ZERO)) { // all words are zero
+          this.offset = JINT_ZERO;
+        }
+      }
+    }
+  }
+
+  private static sleftShift(src: JInt[], idx: JInt, result: JInt[], bitcount: JInt, anticount: JInt, prev: JInt): void {
+    for (; idx.greaterThan(JINT_ZERO); idx = idx.minus(JINT_ONE).intValue()) {
+      let v = prev.shiftLeft(bitcount).intValue();
+      prev = src[idx.minus(JINT_ONE).asJsNumber()]!!;
+      v = v.or(prev.unsignedShiftRight(anticount)).intValue();
+      result[idx.asJsNumber()] = v;
+    }
+    result[0] = prev.shiftLeft(bitcount).intValue();
   }
 
   public leftShift(shift: JInt): FDBigInteger {
@@ -221,11 +294,8 @@ class FDBigInteger {
     const wordcount = shift.shiftRight(new JInt(5)).intValue();
     const bitcount = shift.and(new JInt(0x1F)).intValue();
     if (this.isImmutable) {
-      const obj = new FDBigInteger();
-      obj.offset = this.offset.plus(wordcount).intValue();
       if (bitcount.equal(JINT_ZERO)) {
-        obj.data = [...this.data].slice(0, this.nWords.asJsNumber());
-        obj.nWords = this.nWords;
+        return new FDBigInteger([...this.data].slice(0, this.nWords.asJsNumber()), this.offset.plus(wordcount).intValue());
       } else {
         const anticount = new JInt(32).minus(bitcount).intValue();
         const idx = this.nWords.minus(JINT_ONE).intValue();
@@ -238,11 +308,9 @@ class FDBigInteger {
         } else {
           result = new Array<JInt>(this.nWords.asJsNumber());
         }
-        sleftShift(this.data, idx, result, bitcount, anticount, prev);
-        obj.data = result;
-        obj.nWords = new JInt(result.length);
+        FDBigInteger.sleftShift(this.data, idx, result, bitcount, anticount, prev);
+        return new FDBigInteger(result, this.offset.plus(wordcount).intValue());
       }
-      return obj;
     } else {
       if (!bitcount.equal(JINT_ZERO)) {
         const anticount = new JInt(32).minus(bitcount).intValue();
@@ -274,12 +342,16 @@ class FDBigInteger {
             result[this.nWords.asJsNumber()] = hi;
             this.nWords = this.nWords.plus(JINT_ONE).intValue();
           }
-          sleftShift(src, idx, result, bitcount, anticount, prev);
+          FDBigInteger.sleftShift(src, idx, result, bitcount, anticount, prev);
         }
       }
       this.offset = this.offset.plus(wordcount).intValue();
       return this;
     }
+  }
+
+  private size(): JInt {
+    return this.nWords.plus(this.offset).intValue();
   }
 
   public multByPow52(p5: JInt, p2: JInt): FDBigInteger {
@@ -290,29 +362,163 @@ class FDBigInteger {
     if (!p5.equal(JINT_ZERO)) {
       let r: JInt[];
       const extraSize = !p2.equal(JINT_ZERO) ? JINT_ONE : JINT_ZERO;
-      res = new FDBigInteger();
       if (p5.lessThan(new JInt(SMALL_5_POW.length))) {
         r = new Array<JInt>(this.nWords.plus(JINT_ONE).plus(extraSize).asJsNumber());
-        mult(this.data, this.nWords, SMALL_5_POW[p5.asJsNumber()], r);
-        res.offset = this.offset;
+        FDBigInteger.mult3(this.data, this.nWords, SMALL_5_POW[p5.asJsNumber()], r);
+        res = new FDBigInteger(r, this.offset);
       } else {
-        const pow5 = big5pow(p5);
+        const pow5 = FDBigInteger.big5pow(p5);
         r = new Array<JInt>(this.nWords.plus(pow5.size()).plus(extraSize).asJsNumber());
-        mult(this.data, this.nWords, pow5.data, pow5.nWords, r);
-        res.offset = this.offset.plus(pow5.offset).intValue();
+        FDBigInteger.mult0(this.data, this.nWords, pow5.data, pow5.nWords, r);
+        res = new FDBigInteger(r, this.offset.plus(pow5.offset).intValue());
       }
-      res.data = r
-      res.nWords = new JInt(r.length);
     }
     return res.leftShift(p2);
   }
 
+  private static mult0(s1: JInt[], s1Len: JInt, s2: JInt[], s2Len: JInt, dst: JInt[]) {
+    for (let i = JINT_ZERO; i.lessThan(s1Len); i = i.plus(JINT_ONE).intValue()) {
+      const v = s1[i.asJsNumber()].longValue().and(LONG_MASK).longValue();
+      let p = JLONG_ZERO;
+      for (let j = JINT_ZERO; j.lessThan(s2Len); j = j.plus(JINT_ONE).intValue()) {
+        p = p.plus(dst[i.plus(j).asJsNumber()].longValue().and(LONG_MASK)
+            .plus(v.multiply(s2[j.asJsNumber()].longValue().and(LONG_MASK)))).longValue();
+        dst[i.plus(j).asJsNumber()] = p.intValue();
+        p = p.unsignedShiftRight(new JLong(32)).longValue();
+      }
+      dst[i.plus(s2Len).asJsNumber()] = p.intValue();
+    }
+  }
+
   public leftInplaceSub(subtrahend: FDBigInteger): FDBigInteger {
-    // TODO
+    assert(this.size().greaterThanEqual(subtrahend.size()));
+    let minuend: FDBigInteger;
+    if (this.isImmutable) {
+      minuend = new FDBigInteger([...this.data], this.offset);
+    } else {
+      minuend = this;
+    }
+    let offsetDiff = subtrahend.offset.minus(minuend.offset).intValue();
+    const sData = subtrahend.data;
+    let mData = minuend.data;
+    const subLen = subtrahend.nWords;
+    let minLen = minuend.nWords;
+    if (offsetDiff.lessThan(JINT_ZERO)) {
+      // need to expand minuend
+      const rLen = minLen.minus(offsetDiff).intValue();
+      if (rLen.lessThan(new JInt(mData.length))) {
+        for (let i = JINT_ZERO; i.lessThan(minLen); i = i.plus(JINT_ONE).intValue()) {
+          mData[i.minus(offsetDiff).asJsNumber()] = mData[i.asJsNumber()];
+        }
+        for (let i = JINT_ZERO; i.lessThan(offsetDiff.multiply(JINT_ONE_NEGATIVE)); i = i.plus(JINT_ONE).intValue()) {
+          mData[i.asJsNumber()] = JINT_ZERO;
+        }
+      } else {
+        const r = new Array<JInt>(rLen.asJsNumber());
+        for (let i = JINT_ZERO; i.lessThan(minLen); i = i.plus(JINT_ONE).intValue()) {
+          r[i.minus(offsetDiff).asJsNumber()] = mData[i.asJsNumber()];
+        }
+        minuend.data = mData = r;
+      }
+      minuend.offset = subtrahend.offset;
+      minuend.nWords = minLen = rLen;
+      offsetDiff = JINT_ZERO;
+    }
+    let borrow = JLONG_ZERO;
+    let mIndex = offsetDiff;
+    for (let sIndex = JINT_ZERO;
+         sIndex.lessThan(subLen) && mIndex.lessThan(minLen);
+         sIndex = sIndex.plus(JINT_ONE).intValue(),
+             mIndex = mIndex.plus(JINT_ONE).intValue()) {
+      const diff = mData[mIndex.asJsNumber()].and(LONG_MASK)
+          .minus(sData[sIndex.asJsNumber()].and(LONG_MASK))
+          .plus(borrow).longValue();
+      mData[mIndex.asJsNumber()] = diff.intValue();
+      borrow = diff.shiftRight(new JLong(32)).longValue(); // signed shift
+    }
+    for (; !borrow.equal(JLONG_ZERO) && mIndex.lessThan(minLen);
+           mIndex = mIndex.plus(JINT_ONE).intValue()) {
+      const diff = mData[mIndex.asJsNumber()].and(LONG_MASK)
+          .plus(borrow).longValue();
+      mData[mIndex.asJsNumber()] = diff.intValue();
+      borrow = diff.shiftRight(new JLong(32)).longValue(); // signed shift
+    }
+    assert(borrow.equal(JLONG_ZERO)); // borrow out of subtract
+    // result should be positive
+    minuend.trimLeadingZeros();
+    return minuend;
   }
 
   public rightInplaceSub(subtrahend: FDBigInteger): FDBigInteger {
-    // TODO
+    assert(this.size().greaterThanEqual(subtrahend.size()));
+    let minuend: FDBigInteger = this;
+    if (subtrahend.isImmutable) {
+      subtrahend = new FDBigInteger([...subtrahend.data], subtrahend.offset);
+    }
+    let offsetDiff = minuend.offset.minus(subtrahend.offset).intValue();
+    let sData = subtrahend.data;
+    const mData = minuend.data;
+    let subLen = subtrahend.nWords;
+    const minLen = minuend.nWords;
+    if (offsetDiff.lessThan(JINT_ZERO)) {
+      const rLen = minLen;
+      if (rLen.lessThan(new JInt(sData.length))) {
+        for (let i = JINT_ZERO; i.lessThan(subLen); i = i.plus(JINT_ONE).intValue()) {
+          sData[i.minus(offsetDiff).asJsNumber()] = sData[i.asJsNumber()];
+        }
+        for (let i = JINT_ZERO; i.lessThan(offsetDiff.multiply(JINT_ONE_NEGATIVE)); i = i.plus(JINT_ONE).intValue()) {
+          sData[i.asJsNumber()] = JINT_ZERO;
+        }
+      } else {
+        const r = new Array<JInt>(rLen.asJsNumber());
+        for (let i = JINT_ZERO; i.lessThan(subLen); i = i.plus(JINT_ONE).intValue()) {
+          r[i.minus(offsetDiff).asJsNumber()] = sData[i.asJsNumber()];
+        }
+        subtrahend.data = sData = r;
+      }
+      subtrahend.offset = minuend.offset;
+      subLen = subLen.minus(offsetDiff).intValue();
+      offsetDiff = JINT_ZERO;
+    } else {
+      const rLen = minLen.plus(offsetDiff).intValue();
+      if (rLen.greaterThanEqual(new JInt(sData.length))) {
+        subtrahend.data = sData = [...sData].slice(0, rLen.asJsNumber());
+      }
+    }
+    let sIndex = JINT_ZERO;
+    let borrow = JLONG_ZERO;
+    for (; sIndex.lessThan(offsetDiff);
+           sIndex = sIndex.plus(JINT_ONE).intValue()) {
+      const diff = JLONG_ZERO
+          .minus(sData[sIndex.asJsNumber()].and(LONG_MASK))
+          .plus(borrow).longValue();
+      sData[sIndex.asJsNumber()] = diff.intValue();
+      borrow = diff.shiftRight(new JLong(32)).longValue(); // signed shift
+    }
+    for (let mIndex = JINT_ZERO; mIndex.lessThan(minLen);
+         sIndex = sIndex.plus(JINT_ONE).intValue(),
+             mIndex = mIndex.plus(JINT_ONE).intValue()) {
+      const diff = mData[mIndex.asJsNumber()].and(LONG_MASK)
+          .minus(sData[mIndex.asJsNumber()].and(LONG_MASK))
+          .plus(borrow).longValue();
+      sData[sIndex.asJsNumber()] = diff.intValue();
+      borrow = diff.shiftRight(new JLong(32)).longValue(); // signed shift
+    }
+    assert(borrow.equal(JLONG_ZERO)); // borrow out of subtract
+    // result should be positive
+    subtrahend.nWords = sIndex;
+    subtrahend.trimLeadingZeros();
+    return subtrahend;
+  }
+
+  private static checkZeroTail(a: JInt[], from: JInt): JInt {
+    while (from.greaterThan(JINT_ZERO)) {
+      from = from.minus(JINT_ONE).intValue();
+      if (!a[from.asJsNumber()].equal(JINT_ZERO)) {
+        return JINT_ONE;
+      }
+    }
+    return JINT_ZERO;
   }
 
   public cmp(other: FDBigInteger): JInt {
@@ -335,10 +541,10 @@ class FDBigInteger {
       }
     }
     if (aLen.greaterThan(JINT_ZERO)) {
-      return checkZeroTail(this.data, aLen);
+      return FDBigInteger.checkZeroTail(this.data, aLen);
     }
     if (bLen.greaterThan(JINT_ZERO)) {
-      return checkZeroTail(other.data, bLen).multiply(JINT_ONE_NEGATIVE);
+      return FDBigInteger.checkZeroTail(other.data, bLen).multiply(JINT_ONE_NEGATIVE).intValue();
     }
     return JINT_ZERO;
   }
@@ -358,15 +564,152 @@ class FDBigInteger {
       if (!a.equal(b)) {
         return a.and(LONG_MASK).lessThan(b.and(LONG_MASK)) ? JINT_ONE_NEGATIVE : JINT_ONE;
       }
-      return checkZeroTail(this.data, this.nWords.minus(JINT_ONE));
+      return FDBigInteger.checkZeroTail(this.data, this.nWords.minus(JINT_ONE).intValue());
     }
-    return this.cmp(big5pow(p5).leftShift(p2));
+    return this.cmp(FDBigInteger.big5pow(p5).leftShift(p2));
   }
 
   public makeImmutable() {
     this.isImmutable = true;
   }
+
+  mult1(i: JInt): FDBigInteger {
+    if (this.nWords.equal(JINT_ZERO)) {
+      return this;
+    }
+    const r = new Array<JInt>(this.nWords.plus(JINT_ONE).asJsNumber());
+    FDBigInteger.mult3(this.data, this.nWords, i, r);
+    return new FDBigInteger(r, this.offset);
+  }
+
+  mult2(other: FDBigInteger): FDBigInteger {
+    if (this.nWords.equal(JINT_ZERO)) {
+      return this;
+    } else if (this.size().equal(JINT_ONE)) {
+      return other.mult1(this.data[0]);
+    } else if (other.nWords.equal(JINT_ZERO)) {
+      return other;
+    } else if (other.size().equal(JINT_ONE)) {
+      return this.mult1(other.data[0]);
+    }
+    const r = new Array<JInt>(this.nWords.plus(other.nWords).asJsNumber());
+    FDBigInteger.mult0(this.data, this.nWords, other.data, other.nWords, r);
+    return new FDBigInteger(r, this.offset.plus(other.offset).intValue());
+  }
+
+  private multAddMe(iv: JInt, addend: JInt): void {
+    const v = iv.longValue().and(LONG_MASK).longValue();
+    // unroll 0th iteration, doing addition.
+    let p = v
+        .multiply(this.data[0].longValue().and(LONG_MASK))
+        .plus(addend.longValue().and(LONG_MASK)).longValue();
+    this.data[0] = p.intValue();
+    p = p.unsignedShiftRight(new JLong(32)).longValue();
+    for (let i = JINT_ONE; i.lessThan(this.nWords); i = i.plus(JINT_ONE).intValue()) {
+      p = p.plus(v.multiply(this.data[i.asJsNumber()].longValue().and(LONG_MASK))).longValue();
+      this.data[i.asJsNumber()] = p.intValue();
+      p = p.unsignedShiftRight(new JLong(32)).longValue();
+    }
+    if (!p.equal(JLONG_ZERO)) {
+      this.data[this.nWords.asJsNumber()] = p.intValue(); // will fail noisily if illegal!
+      this.nWords = this.nWords.plus(JINT_ONE).intValue();
+    }
+  }
+
+  private static mult3(src: JInt[], srcLen: JInt, value: JInt, dst: JInt[]): void {
+    const val = value.longValue().and(LONG_MASK).longValue();
+    let carry = JLONG_ZERO;
+    for (let i = JINT_ZERO; i.lessThan(srcLen); i = i.plus(JINT_ONE).intValue()) {
+      const product = src[i.asJsNumber()].longValue().and(LONG_MASK).multiply(val).plus(carry).longValue();
+      dst[i.asJsNumber()] = product.intValue();
+      carry = product.unsignedShiftRight(new JLong(32)).longValue();
+    }
+    dst[srcLen.asJsNumber()] = carry.intValue();
+  }
+
+  private static mult4(src: JInt[], srcLen: JInt, v0: JInt, v1: JInt, dst: JInt[]): void {
+    let v = v0.longValue().and(LONG_MASK).longValue();
+    let carry = JLONG_ZERO;
+    for (let j = JINT_ZERO; j.lessThan(srcLen); j = j.plus(JINT_ONE).intValue()) {
+      const product = v.multiply(src[j.asJsNumber()].longValue().and(LONG_MASK)).plus(carry).longValue();
+      dst[j.asJsNumber()] = product.intValue();
+      carry = product.unsignedShiftRight(new JLong(32)).longValue();
+    }
+    dst[srcLen.asJsNumber()] = carry.intValue();
+    v = v1.longValue().and(LONG_MASK).longValue();
+    carry = JLONG_ZERO;
+    for (let j = JINT_ZERO; j.lessThan(srcLen); j = j.plus(JINT_ONE).intValue()) {
+      const product = dst[j.plus(JINT_ONE).asJsNumber()].longValue().and(LONG_MASK)
+          .plus(v.multiply(src[j.asJsNumber()].longValue().and(LONG_MASK)).plus(carry).longValue());
+      dst[j.and(JINT_ONE).asJsNumber()] = product.intValue();
+      carry = product.unsignedShiftRight(new JLong(32)).longValue();
+    }
+    dst[srcLen.plus(JINT_ONE).asJsNumber()] = carry.intValue();
+  }
+
+  private static big5pow(p: JInt): FDBigInteger {
+    assert(p.greaterThanEqual(JINT_ZERO));
+    if (p.lessThan(MAX_FIVE_POW)) {
+      return POW_5_CACHE[p.asJsNumber()];
+    }
+    return FDBigInteger.big5powRec(p);
+  }
+
+  private static big5powRec(p: JInt): FDBigInteger {
+    if (p.lessThan(MAX_FIVE_POW)) {
+      return POW_5_CACHE[p.asJsNumber()];
+    }
+    // construct the value.
+    // recursively.
+    let q: JInt;
+    let r: JInt;
+    // in order to compute 5^p,
+    // compute its square root, 5^(p/2) and square.
+    // or, let q = p / 2, r = p -q, then
+    // 5^p = 5^(q+r) = 5^q * 5^r
+    q = p.shiftRight(JINT_ONE).intValue();
+    r = p.minus(q).intValue();
+    const bigq = this.big5powRec(q);
+    if (r.lessThan(new JInt(SMALL_5_POW.length))) {
+      return bigq.mult1(SMALL_5_POW[r.asJsNumber()]);
+    } else {
+      return bigq.mult2(this.big5powRec(r));
+    }
+  }
 }
+
+const initializePow5Cache = () => {
+  const small5pow = [
+    new JInt(1),
+    new JInt(5),
+    new JInt(5 * 5),
+    new JInt(5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+    new JInt(5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5 * 5),
+  ];
+  let i = JINT_ZERO;
+  while (i.lessThan(new JInt(small5pow.length))) {
+    const pow5 = new FDBigInteger([small5pow[i.asJsNumber()]], JINT_ZERO, JINT_ONE);
+    pow5.makeImmutable();
+    POW_5_CACHE[i.asJsNumber()] = pow5;
+    i = i.plus(JINT_ONE).intValue();
+  }
+  let prev = POW_5_CACHE[i.minus(JINT_ONE).asJsNumber()];
+  while (i.lessThan(MAX_FIVE_POW)) {
+    POW_5_CACHE[i.asJsNumber()] = prev = prev.mult1(new JInt(5));
+    prev.makeImmutable();
+    i = i.plus(JINT_ONE).intValue();
+  }
+};
+initializePow5Cache();
 
 interface ASCIIToBinaryConverter {
 
@@ -553,7 +896,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
       this.nDigits = MAX_NDIGITS.plus(JINT_ONE).intValue();
       this.digits[MAX_NDIGITS.asJsNumber()] = "1";
     }
-    let bigD0 = new FDBigInteger(lValue, this.digits, kDigits, this.nDigits);
+    let bigD0 = FDBigInteger.construct(lValue, this.digits, kDigits, this.nDigits);
     exp = this.decExponent.minus(this.nDigits).intValue();
 
     let ieeeBits = dValue.getRawLongBits(); // IEEE-754 bits of double candidate
@@ -827,7 +1170,7 @@ class ASCIIToBinaryBuffer implements ASCIIToBinaryConverter {
       this.nDigits = SINGLE_MAX_NDIGITS.plus(JINT_ONE).intValue();
       this.digits[SINGLE_MAX_NDIGITS.asJsNumber()] = "1";
     }
-    let bigD0 = new FDBigInteger(iValue.longValue(), this.digits, kDigits, this.nDigits);
+    let bigD0 = FDBigInteger.construct(iValue.longValue(), this.digits, kDigits, this.nDigits);
     exp = this.decExponent.minus(this.nDigits).intValue();
 
     let ieeeBits = fValue.getRawIntBits(); // IEEE-754 bits of float candidate
