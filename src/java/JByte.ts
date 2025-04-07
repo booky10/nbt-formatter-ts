@@ -1,9 +1,8 @@
 import JNumber from "./JNumber.js";
-import JInt, {JINT_ZERO} from "./JInt.js";
+import JInt from "./JInt.js";
 import JLong from "./JLong.js";
 import JShort from "./JShort.js";
-
-const JS_BITS = 8;
+import {JBYTE_MAX_VALUE, JBYTE_MIN_VALUE, JBYTE_SIZE, JINT_ZERO} from "./NumberConstants.js";
 
 export default class JByte extends JNumber {
   private readonly value: number;
@@ -11,7 +10,7 @@ export default class JByte extends JNumber {
   constructor(value: bigint | number) {
     super();
     const bigint = BigInt(value);
-    const limited = BigInt.asIntN(JS_BITS, bigint);
+    const limited = BigInt.asIntN(JBYTE_SIZE.asJsNumber(), bigint);
     this.value = Number(limited);
   }
 
@@ -86,11 +85,3 @@ export default class JByte extends JNumber {
     return new JByte(this.value / num.byteValue().value);
   }
 }
-
-export const JBYTE_ZERO = new JByte(0);
-export const JBYTE_ONE_POSITIVE = new JByte(1);
-export const JBYTE_ONE_NEGATIVE = new JByte(-1);
-export const JBYTE_MIN_VALUE = new JByte(-128);
-export const JBYTE_MAX_VALUE = new JByte(127);
-export const JBYTE_SIZE = new JInt(JS_BITS);
-export const JBYTE_BYTES = JBYTE_SIZE.divide(JBYTE_SIZE);

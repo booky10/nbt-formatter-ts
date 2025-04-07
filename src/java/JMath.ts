@@ -1,5 +1,6 @@
-import JInt, {JINT_ZERO} from "./JInt.js";
-import JFloat, {JFLOAT_ZERO, JFLOAT_ZERO_NEGATIVE} from "./JFloat.js";
+import JInt from "./JInt.js";
+import JFloat from "./JFloat.js";
+import {JFLOAT_ZERO, JFLOAT_ZERO_NEGATIVE, JINT_ZERO} from "./NumberConstants.js";
 
 export default class JMath {
   private constructor() {

@@ -1,6 +1,10 @@
 // noinspection UnnecessaryLabelOnBreakStatementJS
 
-import JInt, {
+import JInt from "./JInt.js";
+import JDouble from "./JDouble.js";
+import JFloat from "./JFloat.js";
+import JLong from "./JLong.js";
+import {
   JINT_MAX_VALUE,
   JINT_ONE_NEGATIVE,
   JINT_ONE,
@@ -10,8 +14,6 @@ import JInt, {
   JINT_SIXTEEN,
   JINT_TWO,
   JINT_EIGHT,
-} from "./JInt.js";
-import JDouble, {
   JDOUBLE_EXP_BIAS,
   JDOUBLE_EXP_BIT_MASK,
   JDOUBLE_INFINITY_NEGATIVE,
@@ -29,8 +31,6 @@ import JDouble, {
   JDOUBLE_TWO_POSITIVE,
   JDOUBLE_ZERO_NEGATIVE,
   JDOUBLE_ZERO,
-} from "./JDouble.js";
-import JFloat, {
   JFLOAT_EXP_BIAS,
   JFLOAT_EXP_BIT_MASK,
   JFLOAT_INFINITY_NEGATIVE,
@@ -47,8 +47,11 @@ import JFloat, {
   JFLOAT_MIN_VALUE,
   JFLOAT_MAX_VALUE,
   JFLOAT_SIGNIF_BIT_MASK,
-} from "./JFloat.js";
-import JLong, {JLONG_ONE_NEGATIVE, JLONG_ONE, JLONG_ZERO, JLONG_TEN} from "./JLong.js";
+  JLONG_ONE_NEGATIVE,
+  JLONG_ONE,
+  JLONG_ZERO,
+  JLONG_TEN,
+} from "./NumberConstants.js";
 import {assert} from "../common/util.js";
 import JMath from "./JMath.js";
 

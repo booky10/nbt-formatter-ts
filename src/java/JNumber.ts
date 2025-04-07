@@ -11,6 +11,8 @@ export default abstract class JNumber {
 
   public abstract asJsBigint(): bigint
 
+  public abstract asString(): string;
+
   public abstract intValue(): JInt;
 
   public abstract longValue(): JLong;

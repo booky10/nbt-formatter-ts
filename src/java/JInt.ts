@@ -1,19 +1,31 @@
 import JNumber from "./JNumber.js";
 import {MAX_RADIX, MIN_RADIX} from "../common/util.js";
-import JByte, {JBYTE_SIZE} from "./JByte.js";
+import JByte from "./JByte.js";
 import JLong from "./JLong.js";
 import JShort from "./JShort.js";
-
-const JS_BITS = 32;
+import {
+  JINT_EIGHT,
+  JINT_FOUR,
+  JINT_MAX_VALUE,
+  JINT_MIN_VALUE,
+  JINT_ONE,
+  JINT_ONE_NEGATIVE,
+  JINT_SIXTEEN,
+  JINT_SIZE, JINT_TWO,
+  JINT_ZERO,
+} from "./NumberConstants.js";
 
 export default class JInt extends JNumber {
+  private readonly uvalue: bigint;
+  private readonly svalue: bigint;
   private readonly value: number;
 
   constructor(value: bigint | number) {
     super();
     const bigint = BigInt(value);
-    const limited = BigInt.asIntN(JS_BITS, bigint);
-    this.value = Number(limited);
+    this.uvalue = BigInt.asUintN(JINT_SIZE.asJsNumber(), bigint);
+    this.svalue = BigInt.asIntN(JINT_SIZE.asJsNumber(), bigint);
+    this.value = Number(this.svalue);
   }
 
   // copied from java 21's Integer#parseInt
@@ -74,7 +86,15 @@ export default class JInt extends JNumber {
   }
 
   asJsBigint(): bigint {
-    return BigInt(this.value);
+    return this.svalue;
+  }
+
+  asString(): string {
+    return this.svalue.toString(10);
+  }
+
+  asHexString(): string {
+    return this.uvalue.toString(16);
   }
 
   intValue(): JInt {
@@ -82,54 +102,84 @@ export default class JInt extends JNumber {
   }
 
   longValue(): JLong {
-    return new JLong(this.value);
+    return new JLong(this.svalue);
   }
 
   byteValue(): JByte {
-    return new JByte(this.value);
+    return new JByte(this.svalue);
   }
 
   shortValue(): JShort {
-    return new JShort(this.value);
+    return new JShort(this.svalue);
   }
 
   equal(num: JNumber): boolean {
-    return this.value === num.intValue().value;
+    return this.uvalue === num.intValue().uvalue;
   }
 
   greaterThan(num: JNumber): boolean {
-    return this.value > num.intValue().value;
+    return this.svalue > num.intValue().svalue;
   }
 
   greaterThanEqual(num: JNumber): boolean {
-    return this.value >= num.intValue().value;
+    return this.svalue >= num.intValue().svalue;
   }
 
   lessThan(num: JNumber): boolean {
-    return this.value < num.intValue().value;
+    return this.svalue < num.intValue().svalue;
   }
 
   lessThanEqual(num: JNumber): boolean {
-    return this.value <= num.intValue().value;
+    return this.svalue <= num.intValue().svalue;
   }
 
   plus(num: JNumber): JNumber {
-    return new JInt(this.value + num.intValue().value);
+    return new JInt(this.svalue + num.intValue().svalue);
   }
 
   minus(num: JNumber): JNumber {
-    return new JInt(this.value - num.intValue().value);
+    return new JInt(this.svalue - num.intValue().svalue);
   }
 
   multiply(num: JNumber): JNumber {
-    return new JInt(this.value * num.intValue().value);
+    return new JInt(this.svalue * num.intValue().svalue);
   }
 
   divide(num: JNumber): JNumber {
     if (num.equal(JINT_ZERO)) {
       throw new Error("/ by zero");
     }
-    return new JInt(this.value / num.intValue().value);
+    return new JInt(this.svalue / num.intValue().svalue);
+  }
+
+  or(num: JNumber): JNumber {
+    return new JInt(this.uvalue | num.intValue().uvalue);
+  }
+
+  and(num: JNumber): JNumber {
+    return new JInt(this.uvalue & num.intValue().uvalue);
+  }
+
+  not(): JNumber {
+    return new JInt(~this.svalue);
+  }
+
+  shiftLeft(bits: JNumber): JNumber {
+    // TODO broken behavior for negative values
+    // TODO broken behavior for out-of-bounds
+    return new JInt(this.svalue << bits.intValue().svalue);
+  }
+
+  shiftRight(bits: JNumber): JNumber {
+    // TODO broken behavior for negative values
+    // TODO broken behavior for out-of-bounds
+    return new JInt(this.svalue >> bits.intValue().svalue);
+  }
+
+  unsignedShiftRight(bits: JNumber): JNumber {
+    // TODO broken behavior for negative values
+    // TODO broken behavior for out-of-bounds
+    return new JInt(this.uvalue >> bits.intValue().svalue);
   }
 
   public numberOfLeadingZeros(): JInt {
@@ -184,16 +234,3 @@ export default class JInt extends JNumber {
     return n.plus(i.unsignedShiftRight(JINT_ONE)).intValue();
   }
 }
-
-export const JINT_ONE_NEGATIVE = new JInt(-1);
-export const JINT_ZERO = new JInt(0);
-export const JINT_ONE = new JInt(1);
-export const JINT_TWO = new JInt(2);
-export const JINT_FOUR = new JInt(4);
-export const JINT_EIGHT = new JInt(8);
-export const JINT_TEN = new JInt(10);
-export const JINT_SIXTEEN = new JInt(16);
-export const JINT_MIN_VALUE = new JInt(0x80000000);
-export const JINT_MAX_VALUE = new JInt(0x7FFFFFFF);
-export const JINT_SIZE = new JInt(JS_BITS);
-export const JINT_BYTES = JINT_SIZE.divide(JBYTE_SIZE);

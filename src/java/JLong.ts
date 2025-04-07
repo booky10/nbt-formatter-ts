@@ -1,10 +1,18 @@
 import JNumber from "./JNumber.js";
 import {MAX_RADIX, MIN_RADIX} from "../common/util.js";
-import JByte, {JBYTE_SIZE} from "./JByte.js";
-import JInt, {JINT_SIZE, JINT_ZERO} from "./JInt.js";
+import JByte from "./JByte.js";
+import JInt from "./JInt.js";
 import JShort from "./JShort.js";
-
-const JS_BITS = 64;
+import {
+  JINT_SIZE,
+  JINT_ZERO,
+  JLONG_MAX_VALUE,
+  JLONG_MIN_VALUE,
+  JLONG_ONE,
+  JLONG_ONE_NEGATIVE,
+  JLONG_SIZE,
+  JLONG_ZERO,
+} from "./NumberConstants.js";
 
 export default class JLong extends JNumber {
   private readonly value: bigint;
@@ -12,7 +20,7 @@ export default class JLong extends JNumber {
   constructor(value: bigint | number) {
     super();
     const bigint = BigInt(value);
-    this.value = BigInt.asIntN(JS_BITS, bigint);
+    this.value = BigInt.asIntN(JLONG_SIZE.asJsNumber(), bigint);
   }
 
   // copied from java 21's Long#parseLong
@@ -146,12 +154,3 @@ export default class JLong extends JNumber {
         : x.numberOfTrailingZeros();
   }
 }
-
-export const JLONG_ONE_NEGATIVE = new JLong(-1);
-export const JLONG_ZERO = new JLong(0);
-export const JLONG_ONE = new JLong(1);
-export const JLONG_TEN = new JLong(10);
-export const JLONG_MIN_VALUE = new JLong(0x80000000);
-export const JLONG_MAX_VALUE = new JLong(0x7FFFFFFF);
-export const JLONG_SIZE = new JInt(JS_BITS);
-export const JLONG_BYTES = JLONG_SIZE.divide(JBYTE_SIZE);
